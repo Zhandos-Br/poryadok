@@ -7,7 +7,7 @@ import '../schedule.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'new_task_screen.dart';
-import 'rating_screen.dart';
+import 'employee_tasks_screen.dart';
 import 'schedule_screen.dart';
 
 /// Главный экран руководителя и собственника.
@@ -113,17 +113,18 @@ class _TeamScreenState extends State<TeamScreen> {
                 score: scores[e.id]!,
                 selected: _selected == e.id,
                 today: today,
-                onTap: () => _select(e.id),
-                onProfile: () => Navigator.of(context).push(
+                onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => RatingScreen(userId: e.id),
+                    builder: (_) => EmployeeTasksScreen(userId: e.id),
                   ),
                 ),
+                onCalendar: () => _select(e.id),
               ),
               const SizedBox(height: 10),
             ],
             const Text(
-              'Нажмите на сотрудника, чтобы увидеть его календарь. '
+              'Нажмите на сотрудника, чтобы открыть его задачи и выполнение за период. '
+              'Значок календаря показывает его смены ниже. '
               'Рейтинг по 100 баллам: 50 в срок, 20 полнота отчёта, '
               '20 качество, 10 дисциплина.',
               style: TextStyle(fontSize: 12.5, color: muted, height: 1.45),
@@ -164,7 +165,7 @@ class _EmployeeCard extends StatelessWidget {
     required this.selected,
     required this.today,
     required this.onTap,
-    required this.onProfile,
+    required this.onCalendar,
   });
 
   final AppUser user;
@@ -172,7 +173,7 @@ class _EmployeeCard extends StatelessWidget {
   final bool selected;
   final DateTime today;
   final VoidCallback onTap;
-  final VoidCallback onProfile;
+  final VoidCallback onCalendar;
 
   @override
   Widget build(BuildContext context) {
@@ -232,9 +233,12 @@ class _EmployeeCard extends StatelessWidget {
               ),
               ScoreBadge(score: score),
               IconButton(
-                tooltip: 'Рейтинг и разбивка',
-                onPressed: onProfile,
-                icon: const Icon(Icons.insights_outlined, color: muted),
+                tooltip: 'Показать в календаре',
+                onPressed: onCalendar,
+                icon: Icon(
+                  Icons.calendar_month_outlined,
+                  color: selected ? brand : muted,
+                ),
               ),
             ],
           ),
