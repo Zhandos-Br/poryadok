@@ -3,71 +3,52 @@ import 'package:provider/provider.dart';
 
 import '../app_state.dart';
 import '../models.dart';
+import '../ru.dart';
 import '../schedule.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
-const _weekdays = [
-  'Понедельник',
-  'Вторник',
-  'Среда',
-  'Четверг',
-  'Пятница',
-  'Суббота',
-  'Воскресенье',
-];
-
-const _monthsGenitive = [
-  'января',
-  'февраля',
-  'марта',
-  'апреля',
-  'мая',
-  'июня',
-  'июля',
-  'августа',
-  'сентября',
-  'октября',
-  'ноября',
-  'декабря',
-];
-
-const _monthsNominative = [
-  'Январь',
-  'Февраль',
-  'Март',
-  'Апрель',
-  'Май',
-  'Июнь',
-  'Июль',
-  'Август',
-  'Сентябрь',
-  'Октябрь',
-  'Ноябрь',
-  'Декабрь',
-];
-
-const _workBg = Color(0xFFDDF5E7);
+const _workBg = Color(0xFFE3F5EC);
+const _offBg = Color(0xFFF0F3F6);
 const _vacationBg = Color(0xFFE3EEFB);
 const _vacationFg = Color(0xFF1A5FA0);
-const _offBg = Color(0xFFEEF2F5);
 
-/// График работы: календарь месяца, смены, выходные и отпуска.
-/// Руководитель и собственник видят всю команду и могут менять дни.
-/// Сотрудник видит только свой график.
-class ScheduleScreen extends StatefulWidget {
-  const ScheduleScreen({super.key});
+/// «Мой график» для сотрудника: свои смены, выходные, отпуск,
+/// итоги месяца и то, как закрыты задачи в каждый день.
+class MyScheduleScreen extends StatelessWidget {
+  const MyScheduleScreen({super.key});
 
   @override
-  State<ScheduleScreen> createState() => _ScheduleScreenState();
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+        children: [
+          const ScreenTitle('Мой график'),
+          const SizedBox(height: 14),
+          ScheduleView(filter: state.me.id),
+        ],
+      ),
+    );
+  }
 }
 
-class _ScheduleScreenState extends State<ScheduleScreen> {
+/// Календарь месяца, выбранный день и итоги.
+/// [filter]: 'all' для всей команды или идентификатор сотрудника.
+/// Руководитель и собственник могут менять дни сотрудника.
+class ScheduleView extends StatefulWidget {
+  const ScheduleView({super.key, required this.filter});
+
+  final String filter;
+
+  @override
+  State<ScheduleView> createState() => _ScheduleViewState();
+}
+
+class _ScheduleViewState extends State<ScheduleView> {
   late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   late DateTime _day = dateOnly(DateTime.now());
-
-  /// 'all' или идентификатор сотрудника.
-  String _filter = 'all';
 
   void _shiftMonth(int delta) {
     setState(() {
@@ -79,87 +60,47 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final isEmployee = state.me.role == Role.employee;
-    final filter = isEmployee ? state.me.id : _filter;
     final today = dateOnly(DateTime.now());
+    final team = widget.filter == 'all';
 
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-        children: [
-          Text(
-            isEmployee ? 'Мой график' : 'График',
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          if (!isEmployee) ...[
-            SizedBox(
-              height: 44,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  _filterChip('all', 'Вся команда', filter),
-                  for (final e in state.employees)
-                    _filterChip(e.id, e.name, filter),
-                ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              tooltip: 'Предыдущий месяц',
+              onPressed: () => _shiftMonth(-1),
+              icon: const Icon(Icons.chevron_left),
+            ),
+            Expanded(
+              child: Text(
+                '${ruMonthsNominative[_month.month - 1]} ${_month.year}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
-            const SizedBox(height: 8),
+            IconButton(
+              tooltip: 'Следующий месяц',
+              onPressed: () => _shiftMonth(1),
+              icon: const Icon(Icons.chevron_right),
+            ),
           ],
-          Row(
-            children: [
-              IconButton(
-                tooltip: 'Предыдущий месяц',
-                onPressed: () => _shiftMonth(-1),
-                icon: const Icon(Icons.chevron_left),
-              ),
-              Expanded(
-                child: Text(
-                  '${_monthsNominative[_month.month - 1]} ${_month.year}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              IconButton(
-                tooltip: 'Следующий месяц',
-                onPressed: () => _shiftMonth(1),
-                icon: const Icon(Icons.chevron_right),
-              ),
-            ],
-          ),
-          const _WeekdayHeader(),
-          const SizedBox(height: 4),
-          _buildGrid(state, filter, today),
-          const SizedBox(height: 10),
-          _Legend(team: filter == 'all'),
-          const SizedBox(height: 12),
-          _DayPanel(
-            day: _day,
-            filter: filter,
-            canEdit: !isEmployee,
-          ),
-          const SizedBox(height: 16),
-          _Totals(month: _month, filter: filter),
-        ],
-      ),
+        ),
+        const _WeekdayHeader(),
+        const SizedBox(height: 4),
+        _buildGrid(state, today),
+        const SizedBox(height: 10),
+        _Legend(team: team),
+        const SizedBox(height: 14),
+        _DayPanel(day: _day, filter: widget.filter),
+        const SizedBox(height: 18),
+        _Totals(month: _month, filter: widget.filter),
+      ],
     );
   }
 
-  Widget _filterChip(String id, String label, String current) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: current == id,
-        onSelected: (_) => setState(() => _filter = id),
-      ),
-    );
-  }
-
-  Widget _buildGrid(AppState state, String filter, DateTime today) {
+  Widget _buildGrid(AppState state, DateTime today) {
     final count = DateUtils.getDaysInMonth(_month.year, _month.month);
     final offset = _month.weekday - 1; // понедельник — первая колонка
     final cells = ((offset + count + 6) ~/ 7) * 7;
@@ -168,41 +109,38 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       crossAxisCount: 7,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 4,
-      crossAxisSpacing: 4,
-      childAspectRatio: 0.85,
+      mainAxisSpacing: 5,
+      crossAxisSpacing: 5,
+      childAspectRatio: 0.88,
       children: [
         for (var i = 0; i < cells; i++)
-          _buildCell(state, filter, today, i - offset + 1, count),
+          _buildCell(state, today, i - offset + 1, count),
       ],
     );
   }
 
-  Widget _buildCell(
-    AppState state,
-    String filter,
-    DateTime today,
-    int d,
-    int count,
-  ) {
+  Widget _buildCell(AppState state, DateTime today, int d, int count) {
     if (d < 1 || d > count) return const SizedBox.shrink();
 
+    final filter = widget.filter;
     final day = DateTime(_month.year, _month.month, d);
     final isToday = day == today;
     final selected = day == _day;
+    final past = !day.isAfter(today);
 
     String line;
     Color bg = Colors.white;
     Color fg = muted;
+    Color? dot;
 
     if (filter == 'all') {
       final stats = state.teamStatsFor(day);
-      if (!day.isAfter(today) && stats.total > 0) {
+      if (past && stats.total > 0) {
         final pct = (stats.share * 100).round();
-        final tone = _tone(pct);
+        final tone = toneForScore(pct);
         line = '$pct%';
-        bg = tone.$1;
-        fg = tone.$2;
+        bg = tone.bg;
+        fg = tone.fg;
       } else {
         final n = state.workersOn(day);
         line = n == 0 ? '—' : '$n чел.';
@@ -222,51 +160,73 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           bg = _offBg;
           fg = muted;
       }
+      final ds = state.userDayStats(filter, day);
+      if (past && ds.total > 0) dot = toneForScore(ds.share * 100).bar;
     }
 
     return Semantics(
       button: true,
       selected: selected,
-      label: '$d ${_monthsGenitive[_month.month - 1]}, $line'
+      label: '$d ${ruMonthsGenitive[_month.month - 1]}, $line'
           '${isToday ? ', сегодня' : ''}',
       child: ExcludeSemantics(
         child: Material(
           color: bg,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           child: InkWell(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             onTap: () => setState(() => _day = day),
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: selected
-                      ? const Color(0xFF0F1B26)
+                      ? ink
                       : isToday
                           ? brand
                           : lineColor,
-                  width: selected || isToday ? 2 : 1,
+                  width: selected || isToday ? 1.6 : 1,
                 ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Stack(
                 children: [
-                  Text(
-                    '$d',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight:
-                          selected || isToday ? FontWeight.w700 : FontWeight.w500,
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$d',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight:
+                                selected || isToday ? FontWeight.w600 : FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          line,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: fg,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Text(
-                    line,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: fg,
+                  if (dot != null)
+                    Positioned(
+                      top: 5,
+                      right: 5,
+                      child: Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: dot,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -275,13 +235,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       ),
     );
   }
-}
-
-/// Цвета по доле задач, выполненных в срок: (фон, текст).
-(Color, Color) _tone(int pct) {
-  if (pct >= 90) return (_workBg, okColor);
-  if (pct >= 75) return (const Color(0xFFFFF1D6), warnColor);
-  return (const Color(0xFFFDE8E6), badColor);
 }
 
 class _WeekdayHeader extends StatelessWidget {
@@ -298,9 +251,9 @@ class _WeekdayHeader extends StatelessWidget {
               names[i],
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: i >= 5 ? badColor : muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: i >= 5 ? toneBad.bar : muted,
               ),
             ),
           ),
@@ -318,10 +271,10 @@ class _Legend extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = team
         ? const [
-            ('В срок 90% и выше', _workBg),
-            ('75–89%', Color(0xFFFFF1D6)),
-            ('Ниже 75%', Color(0xFFFDE8E6)),
-            ('Дальше: человек на смене', Colors.white),
+            ('Задачи в срок 85%+', Color(0xFFE3F5EC)),
+            ('65–84%', Color(0xFFFFF1D6)),
+            ('Ниже 65%', Color(0xFFFDE8E6)),
+            ('Впереди: сколько человек на смене', Colors.white),
           ]
         : const [
             ('Смена, часы', _workBg),
@@ -333,26 +286,22 @@ class _Legend extends StatelessWidget {
       spacing: 12,
       runSpacing: 6,
       children: [
-        for (final item in items)
+        for (final item in items) _LegendItem(label: item.$1, color: item.$2),
+        if (!team)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: item.$2,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFFC5CFD8)),
+              for (final t in const [toneGood, toneMid, toneBad])
+                Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.only(right: 3),
+                  decoration: BoxDecoration(color: t.bar, shape: BoxShape.circle),
                 ),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                item.$1,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: Color(0xFF3B4C5B),
-                ),
+              const SizedBox(width: 3),
+              const Text(
+                'Точка: как закрыты задачи дня',
+                style: TextStyle(fontSize: 12, color: muted),
               ),
             ],
           ),
@@ -361,28 +310,50 @@ class _Legend extends StatelessWidget {
   }
 }
 
-/// Выбранный день: кто на смене, статистика команды и (для руководителя)
+class _LegendItem extends StatelessWidget {
+  const _LegendItem({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: const Color(0xFFC9D2DA)),
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(label, style: const TextStyle(fontSize: 12, color: muted)),
+      ],
+    );
+  }
+}
+
+/// Выбранный день: кто на смене, как закрыты задачи и (для руководителя)
 /// кнопки «Смена / Выходной / Отпуск».
 class _DayPanel extends StatelessWidget {
-  const _DayPanel({
-    required this.day,
-    required this.filter,
-    required this.canEdit,
-  });
+  const _DayPanel({required this.day, required this.filter});
 
   final DateTime day;
   final String filter;
-  final bool canEdit;
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final today = dateOnly(DateTime.now());
     final team = filter == 'all';
-    final people = team
-        ? state.employees
-        : [state.userById(filter)];
-    final stats = state.teamStatsFor(day);
+    final canEdit = state.me.role != Role.employee;
+    final people = team ? state.employees : [state.userById(filter)];
+    final stats =
+        team ? state.teamStatsFor(day) : state.userDayStats(filter, day);
     final isFuture = day.isAfter(today);
 
     return Panel(
@@ -393,46 +364,35 @@ class _DayPanel extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '${_weekdays[day.weekday - 1]}, '
-                  '${day.day} ${_monthsGenitive[day.month - 1]}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  dayLong(day),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
               ),
               if (day == today)
                 const Tag(text: 'Сегодня', bg: brandSoft, fg: brandDark),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           if (!isFuture && stats.total > 0)
-            Row(
-              children: [
-                _PctBadge(pct: (stats.share * 100).round()),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '${stats.onTime} из ${stats.total} задач команды '
-                    'выполнено в срок',
-                    style: const TextStyle(fontSize: 14, color: Color(0xFF3B4C5B)),
-                  ),
-                ),
-              ],
-            )
-          else if (isFuture)
+            _StatsLine(stats: stats, team: team)
+          else if (isFuture && team)
             Text(
               'Запланировано на смене: ${state.workersOn(day)} '
-              'из ${state.employees.length} сотрудников',
-              style: const TextStyle(fontSize: 14, color: Color(0xFF3B4C5B)),
+              'из ${state.employees.length}',
+              style: const TextStyle(fontSize: 13, color: muted),
+            )
+          else
+            const Text(
+              'За этот день задач нет',
+              style: TextStyle(fontSize: 13, color: muted),
             ),
           const SizedBox(height: 6),
-          for (final p in people) _PersonRow(user: p, day: day),
+          for (final p in people) _PersonRow(user: p, day: day, showStats: team),
           if (canEdit && !team) ...[
-            const Divider(height: 20),
+            const Divider(height: 22),
             Text(
-              'Отметить день для: ${state.userById(filter).name}',
-              style: const TextStyle(fontSize: 13, color: muted),
+              'Отметить день: ${state.userById(filter).name}',
+              style: const TextStyle(fontSize: 12.5, color: muted),
             ),
             const SizedBox(height: 8),
             SizedBox(
@@ -450,11 +410,11 @@ class _DayPanel extends StatelessWidget {
             ),
           ],
           if (canEdit && team) ...[
-            const Divider(height: 20),
+            const Divider(height: 22),
             const Text(
-              'Выберите сотрудника сверху, чтобы поставить смену, '
+              'Выберите сотрудника выше, чтобы поставить смену, '
               'выходной или отпуск.',
-              style: TextStyle(fontSize: 13, color: muted, height: 1.4),
+              style: TextStyle(fontSize: 12.5, color: muted, height: 1.4),
             ),
           ],
         ],
@@ -463,43 +423,65 @@ class _DayPanel extends StatelessWidget {
   }
 }
 
-class _PctBadge extends StatelessWidget {
-  const _PctBadge({required this.pct});
+class _StatsLine extends StatelessWidget {
+  const _StatsLine({required this.stats, required this.team});
 
-  final int pct;
+  final DayTeamStats stats;
+  final bool team;
 
   @override
   Widget build(BuildContext context) {
-    final tone = _tone(pct);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-      decoration: BoxDecoration(
-        color: tone.$1,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        '$pct%',
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: tone.$2,
+    final pct = (stats.share * 100).round();
+    final tone = toneForScore(pct);
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            color: tone.bg,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            '$pct%',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: tone.fg,
+            ),
+          ),
         ),
-      ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            team
+                ? '${stats.onTime} из ${stats.total} задач команды в срок'
+                : '${stats.onTime} из ${stats.total} задач в срок',
+            style: const TextStyle(fontSize: 13, color: muted),
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _PersonRow extends StatelessWidget {
-  const _PersonRow({required this.user, required this.day});
+  const _PersonRow({
+    required this.user,
+    required this.day,
+    required this.showStats,
+  });
 
   final AppUser user;
   final DateTime day;
+  final bool showStats;
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final status = state.statusOf(user.id, day);
     final shift = state.shiftOf(user.id);
+    final today = dateOnly(DateTime.now());
+    final ds = state.userDayStats(user.id, day);
 
     final String meta;
     final Color bg;
@@ -516,14 +498,14 @@ class _PersonRow extends StatelessWidget {
       case DayStatus.off:
         meta = 'Не работает';
         bg = _offBg;
-        fg = const Color(0xFF3B4C5B);
+        fg = muted;
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Avatar(user: user, size: 30),
+          Avatar(user: user, size: 32),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -531,15 +513,20 @@ class _PersonRow extends StatelessWidget {
               children: [
                 Text(
                   user.name,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
-                Text(meta, style: const TextStyle(fontSize: 13, color: muted)),
+                Text(meta, style: const TextStyle(fontSize: 12.5, color: muted)),
               ],
             ),
           ),
+          if (showStats && !day.isAfter(today) && ds.total > 0) ...[
+            Tag(
+              text: '${(ds.share * 100).round()}%',
+              bg: toneForScore(ds.share * 100).bg,
+              fg: toneForScore(ds.share * 100).fg,
+            ),
+            const SizedBox(width: 6),
+          ],
           Tag(text: status.label, bg: bg, fg: fg),
         ],
       ),
@@ -547,7 +534,7 @@ class _PersonRow extends StatelessWidget {
   }
 }
 
-/// Итоги месяца: сколько дней и часов отработано и сколько по плану.
+/// Итоги месяца: отработано и по плану. Для всей команды или одного человека.
 class _Totals extends StatelessWidget {
   const _Totals({required this.month, required this.filter});
 
@@ -562,8 +549,7 @@ class _Totals extends StatelessWidget {
     final people = team ? state.employees : [state.userById(filter)];
 
     var workedDays = 0, workedHours = 0, planDays = 0, planHours = 0;
-    final cards = <Widget>[];
-
+    var off = 0, vac = 0;
     for (final p in people) {
       final worked =
           state.totalsFor(p.id, month.year, month.month, upTo: today);
@@ -572,166 +558,89 @@ class _Totals extends StatelessWidget {
       workedHours += worked.hours;
       planDays += plan.days;
       planHours += plan.hours;
-
-      cards.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Panel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Avatar(user: p, size: 34),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            p.name,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            '${p.position} · смена ${state.shiftOf(p.id).range}',
-                            style: const TextStyle(fontSize: 13, color: muted),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _Stat(
-                        label: 'Отработано',
-                        value: '${worked.days} дн · ${worked.hours} ч',
-                      ),
-                    ),
-                    Expanded(
-                      child: _Stat(
-                        label: 'План на месяц',
-                        value: '${plan.days} дн · ${plan.hours} ч',
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Выходных: ${plan.offDays} · Отпуск: ${plan.vacationDays} дн.',
-                  style: const TextStyle(fontSize: 13, color: Color(0xFF3B4C5B)),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+      off += plan.offDays;
+      vac += plan.vacationDays;
     }
 
-    final monthStats = state.teamStatsForMonth(month.year, month.month);
+    final monthStats = team
+        ? state.teamStatsForMonth(month.year, month.month)
+        : state.userStatsForMonth(filter, month.year, month.month);
+    final pct = (monthStats.share * 100).round();
+    final tone = toneForScore(pct);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'ИТОГИ · ${_monthsNominative[month.month - 1].toUpperCase()}',
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.6,
-            color: muted,
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionLabel(
+            'Итоги · ${ruMonthsNominative[month.month - 1]}'
+            '${team ? ' · вся команда' : ''}',
           ),
-        ),
-        const SizedBox(height: 10),
-        if (team) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: brandDark,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Вся команда',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFCFE8E4),
-                  ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _Stat(
+                  label: 'Отработано',
+                  value: '$workedDays дн · $workedHours ч',
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _Stat(
-                        label: 'Отработано',
-                        value: '$workedDays дн · $workedHours ч',
-                        light: true,
-                      ),
-                    ),
-                    Expanded(
-                      child: _Stat(
-                        label: 'План на месяц',
-                        value: '$planDays дн · $planHours ч',
-                        light: true,
-                      ),
-                    ),
-                  ],
+              ),
+              Expanded(
+                child: _Stat(
+                  label: 'План на месяц',
+                  value: '$planDays дн · $planHours ч',
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  monthStats.total == 0
-                      ? 'Задач за месяц пока нет'
-                      : 'Задач выполнено в срок за месяц: '
-                          '${(monthStats.share * 100).round()}%',
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
+          Text(
+            team
+                ? 'Выходных: $off · отпуск: $vac дн. (сумма по команде)'
+                : 'Выходных: $off · отпуск: $vac дн.',
+            style: const TextStyle(fontSize: 12.5, color: muted),
+          ),
+          const Divider(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  monthStats.total == 0
+                      ? 'Задач за месяц пока нет'
+                      : 'Задач выполнено в срок за месяц',
+                  style: const TextStyle(fontSize: 13, color: muted),
+                ),
+              ),
+              if (monthStats.total > 0)
+                Tag(text: '$pct%', bg: tone.bg, fg: tone.fg),
+            ],
+          ),
+          if (monthStats.total > 0) ...[
+            const SizedBox(height: 8),
+            ScoreBar(value: monthStats.share * 100),
+          ],
         ],
-        ...cards,
-      ],
+      ),
     );
   }
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value, this.light = false});
+  const _Stat({required this.label, required this.value});
 
   final String label;
   final String value;
-  final bool light;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: light ? const Color(0xFFCFE8E4) : muted,
-          ),
-        ),
+        Text(label, style: const TextStyle(fontSize: 12.5, color: muted)),
         const SizedBox(height: 2),
         Text(
           value,
-          style: TextStyle(
-            fontSize: light ? 20 : 16,
-            fontWeight: FontWeight.w700,
-            color: light ? Colors.white : null,
-          ),
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
       ],
     );

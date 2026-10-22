@@ -9,6 +9,7 @@ import '../widgets.dart';
 /// Рейтинг сотрудника по 100 баллам с разбивкой.
 /// Один и тот же экран для самого сотрудника («Мой рейтинг»)
 /// и для руководителя с собственником («Профиль сотрудника»).
+/// Шкалы зелёные, жёлтые или красные в зависимости от результата.
 class RatingScreen extends StatelessWidget {
   const RatingScreen({super.key, required this.userId, this.embedded = false});
 
@@ -23,33 +24,37 @@ class RatingScreen extends StatelessWidget {
     final user = state.userById(userId);
     final r = state.ratingFor(userId);
     final isMe = userId == state.me.id;
+    final tone = toneForScore(r.total);
 
     final content = ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
-        Text(
-          isMe ? 'Мой рейтинг' : user.name,
-          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
-        ),
+        ScreenTitle(isMe ? 'Мой рейтинг' : user.name),
         if (!isMe)
-          Text(user.position, style: const TextStyle(color: muted)),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              user.position,
+              style: const TextStyle(fontSize: 13, color: muted),
+            ),
+          ),
         const SizedBox(height: 16),
         Panel(
           padding: const EdgeInsets.all(18),
           child: Row(
             children: [
               SizedBox(
-                width: 124,
-                height: 124,
+                width: 110,
+                height: 110,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
                     CircularProgressIndicator(
                       value: (r.total / 100).clamp(0.0, 1.0),
-                      strokeWidth: 12,
+                      strokeWidth: 10,
                       strokeCap: StrokeCap.round,
-                      backgroundColor: const Color(0xFFDDE5EA),
-                      color: brand,
+                      backgroundColor: const Color(0xFFE6EBEF),
+                      color: tone.bar,
                     ),
                     Center(
                       child: Column(
@@ -57,14 +62,15 @@ class RatingScreen extends StatelessWidget {
                         children: [
                           Text(
                             r.total.round().toString(),
-                            style: const TextStyle(
-                              fontSize: 38,
-                              fontWeight: FontWeight.w700,
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w600,
+                              color: tone.fg,
                             ),
                           ),
                           const Text(
                             'из 100',
-                            style: TextStyle(fontSize: 13, color: muted),
+                            style: TextStyle(fontSize: 12, color: muted),
                           ),
                         ],
                       ),
@@ -77,23 +83,11 @@ class RatingScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Tag(
-                      text: _verdict(r.total),
-                      bg: r.total >= 85
-                          ? const Color(0xFFDDF5E7)
-                          : r.total >= 65
-                              ? const Color(0xFFFFF1D6)
-                              : const Color(0xFFFDE8E6),
-                      fg: r.total >= 85
-                          ? okColor
-                          : r.total >= 65
-                              ? warnColor
-                              : badColor,
-                    ),
+                    Tag(text: verdictForScore(r.total), bg: tone.bg, fg: tone.fg),
                     const SizedBox(height: 8),
                     const Text(
                       'Пересчитывается каждый день',
-                      style: TextStyle(fontSize: 13, color: muted, height: 1.4),
+                      style: TextStyle(fontSize: 12.5, color: muted, height: 1.4),
                     ),
                   ],
                 ),
@@ -109,7 +103,7 @@ class RatingScreen extends StatelessWidget {
             children: [
               const Text(
                 'Из чего складывается рейтинг',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 14),
               _Bar(
@@ -138,6 +132,7 @@ class RatingScreen extends StatelessWidget {
         if (isMe) ...[
           const SizedBox(height: 14),
           const Panel(
+            color: brandSoft,
             borderColor: Colors.transparent,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,7 +140,7 @@ class RatingScreen extends StatelessWidget {
                 Text(
                   'Как поднять рейтинг',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: brandDark,
                   ),
@@ -153,12 +148,12 @@ class RatingScreen extends StatelessWidget {
                 SizedBox(height: 8),
                 Text(
                   'Закрывайте задачи до указанного срока: это половина рейтинга.',
-                  style: TextStyle(color: brandDark, height: 1.4),
+                  style: TextStyle(fontSize: 13, color: brandDark, height: 1.4),
                 ),
                 SizedBox(height: 6),
                 Text(
                   'Сдавайте всё, что просит задача: фото, видео, голос или текст.',
-                  style: TextStyle(color: brandDark, height: 1.4),
+                  style: TextStyle(fontSize: 13, color: brandDark, height: 1.4),
                 ),
               ],
             ),
@@ -169,12 +164,6 @@ class RatingScreen extends StatelessWidget {
 
     if (embedded) return SafeArea(child: content);
     return Scaffold(appBar: AppBar(), body: content);
-  }
-
-  String _verdict(double total) {
-    if (total >= 85) return 'Отличный результат';
-    if (total >= 65) return 'Хороший результат';
-    return 'Нужно внимание';
   }
 }
 
@@ -187,29 +176,29 @@ class _Bar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final percent = max == 0 ? 0.0 : value / max * 100;
+    final tone = toneForScore(percent);
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(
         children: [
           Row(
             children: [
-              Expanded(child: Text(label, style: const TextStyle(fontSize: 15))),
+              Expanded(
+                child: Text(label, style: const TextStyle(fontSize: 14)),
+              ),
               Text(
                 '${value.round()} / ${max.round()}',
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: tone.fg,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: (value / max).clamp(0.0, 1.0),
-              minHeight: 8,
-              backgroundColor: const Color(0xFFDDE5EA),
-              color: brand,
-            ),
-          ),
+          ScoreBar(value: percent, height: 8),
         ],
       ),
     );

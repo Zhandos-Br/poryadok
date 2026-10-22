@@ -98,7 +98,7 @@ class _CloseTaskScreenState extends State<CloseTaskScreen> {
         children: [
           Text(
             task.title,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
           Text(

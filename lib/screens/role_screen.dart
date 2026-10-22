@@ -6,6 +6,7 @@ import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'home_shell.dart';
+import 'register_screen.dart';
 
 /// Вход. В рабочей версии здесь вход по номеру телефона,
 /// а роль назначает руководитель или собственник.
@@ -16,63 +17,68 @@ class RoleScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 48, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: brand,
-                  borderRadius: BorderRadius.circular(16),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 40, 20, 24),
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: brand,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: const Icon(Icons.check, color: Colors.white, size: 30),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Порядок',
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.4,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Задачи, отчёты и рейтинг команды. Просто и под контролем.',
+              style: TextStyle(fontSize: 15, color: muted, height: 1.4),
+            ),
+            const SizedBox(height: 36),
+            const SectionLabel('Войти как'),
+            const SizedBox(height: 12),
+            const _RoleCard(
+              role: Role.employee,
+              icon: Icons.checklist,
+              subtitle: 'Задачи на сегодня и сдача отчётов',
+            ),
+            const SizedBox(height: 10),
+            const _RoleCard(
+              role: Role.manager,
+              icon: Icons.groups_outlined,
+              subtitle: 'Ставлю задачи, проверяю и оцениваю отчёты',
+            ),
+            const SizedBox(height: 10),
+            const _RoleCard(
+              role: Role.owner,
+              icon: Icons.bar_chart,
+              subtitle: 'Вижу все отчёты, команду и рейтинг',
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const RegisterScreen(),
                 ),
-                child: const Icon(Icons.check, color: Colors.white, size: 32),
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Порядок',
-                style: Theme.of(context)
-                    .textTheme
-                    .displaySmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(50),
+                foregroundColor: brandDark,
+                side: const BorderSide(color: brand),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Задачи, отчёты и рейтинг команды. Просто и под контролем.',
-                style: TextStyle(fontSize: 17, color: muted, height: 1.4),
-              ),
-              const Spacer(),
-              const Text(
-                'ВОЙТИ КАК',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.6,
-                  color: muted,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const _RoleCard(
-                role: Role.employee,
-                icon: Icons.checklist,
-                subtitle: 'Задачи на сегодня и сдача отчётов',
-              ),
-              const SizedBox(height: 12),
-              const _RoleCard(
-                role: Role.manager,
-                icon: Icons.groups_outlined,
-                subtitle: 'Ставлю задачи, проверяю и оцениваю отчёты',
-              ),
-              const SizedBox(height: 12),
-              const _RoleCard(
-                role: Role.owner,
-                icon: Icons.bar_chart,
-                subtitle: 'Вижу все отчёты, команду и рейтинг',
-              ),
-            ],
-          ),
+              icon: const Icon(Icons.person_add_alt_1_outlined, size: 20),
+              label: const Text('Зарегистрироваться'),
+            ),
+          ],
         ),
       ),
     );
@@ -102,9 +108,9 @@ class _RoleCard extends StatelessWidget {
       child: Row(
         children: [
           CircleAvatar(
-            radius: 23,
+            radius: 21,
             backgroundColor: brandSoft,
-            child: Icon(icon, color: brand),
+            child: Icon(icon, color: brand, size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -114,14 +120,14 @@ class _RoleCard extends StatelessWidget {
                 Text(
                   role.label,
                   style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 14, color: muted),
+                  style: const TextStyle(fontSize: 13, color: muted),
                 ),
               ],
             ),

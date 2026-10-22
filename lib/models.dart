@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 enum Role { owner, manager, employee }
@@ -35,12 +37,33 @@ class AppUser {
     required this.name,
     required this.position,
     required this.role,
+    this.nickname = '',
+    this.phone = '',
+    this.passport,
+    this.photo,
+    this.external = false,
   });
 
   final String id;
   final String name;
   final String position;
   final Role role;
+
+  /// Никнейм без «@».
+  final String nickname;
+
+  /// Телефон: по нему человека находят в приложении.
+  final String phone;
+
+  /// Паспортные данные. Необязательны, это чувствительная информация.
+  final String? passport;
+
+  /// Фото профиля.
+  final Uint8List? photo;
+
+  /// Человек не из команды: с ним можно переписываться, но он не в графике
+  /// и не в рейтинге.
+  final bool external;
 }
 
 class Report {
@@ -112,6 +135,7 @@ class ChatMessage {
     required this.type,
     this.text,
     this.taskId,
+    this.topicId,
   });
 
   final String id;
@@ -123,6 +147,27 @@ class ChatMessage {
 
   /// Для сообщений типа task и report: на какую задачу ссылаются.
   final String? taskId;
+
+  /// Если сообщение написано внутри темы, здесь её идентификатор.
+  final String? topicId;
+}
+
+/// Тема внутри чата: отдельная переписка, закреплённая вверху.
+/// Её видят все участники чата, куда она добавлена.
+class ChatTopic {
+  const ChatTopic({
+    required this.id,
+    required this.chatId,
+    required this.title,
+    required this.createdById,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String chatId;
+  final String title;
+  final String createdById;
+  final DateTime createdAt;
 }
 
 String hhmm(DateTime d) =>

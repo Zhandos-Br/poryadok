@@ -8,10 +8,15 @@ import '../widgets.dart';
 
 /// Один чат: общий или личный. Работает одинаково для всех ролей.
 /// Кнопка «+» пересылает в чат задачу или готовый отчёт.
+///
+/// Сверху закреплены темы чата. Тема это отдельная переписка внутри
+/// группы или личного чата: сообщения темы не попадают в основную ленту.
+/// Если указан [topicId], экран показывает именно эту тему.
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, required this.chatId});
+  const ChatScreen({super.key, required this.chatId, this.topicId});
 
   final String chatId;
+  final String? topicId;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -29,7 +34,9 @@ class _ChatScreenState extends State<ChatScreen> {
   void _send() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-    context.read<AppState>().sendText(widget.chatId, text);
+    context
+        .read<AppState>()
+        .sendText(widget.chatId, text, topicId: widget.topicId);
     _controller.clear();
   }
 
@@ -89,9 +96,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (taskId == null) return;
 
     if (isTask) {
-      state.shareTask(widget.chatId, taskId);
+      state.shareTask(widget.chatId, taskId, topicId: widget.topicId);
     } else {
-      state.shareReport(widget.chatId, taskId);
+      state.shareReport(widget.chatId, taskId, topicId: widget.topicId);
     }
   }
 
@@ -99,10 +106,22 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final isGroup = widget.chatId == groupChatId;
-    final messages = state.messagesOf(widget.chatId).reversed.toList();
+    final topicId = widget.topicId;
+    final topic = topicId == null ? null : state.topicById(topicId);
+    final messages =
+        state.messagesOf(widget.chatId, topicId: topicId).reversed.toList();
+
+    final String title = topic != null
+        ? topic.title
+        : state.chatTitle(widget.chatId);
+    final String subtitle = topic != null
+        ? 'Тема · ${state.chatTitle(widget.chatId)}'
+        : isGroup
+            ? 'Все участники команды'
+            : state.userById(state.otherParticipant(widget.chatId)).position;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE5ECE9),
+      backgroundColor: const Color(0xFFE9EFEC),
       appBar: AppBar(
         backgroundColor: brandDark,
         foregroundColor: Colors.white,
@@ -110,20 +129,25 @@ class _ChatScreenState extends State<ChatScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              state.chatTitle(widget.chatId),
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
             ),
             Text(
-              isGroup
-                  ? 'Все участники команды'
-                  : state.userById(state.otherParticipant(widget.chatId)).position,
-              style: const TextStyle(fontSize: 13, color: Color(0xFFCFE8E4)),
+              subtitle,
+              style: const TextStyle(fontSize: 12.5, color: Color(0xFFCFE8E4)),
             ),
           ],
         ),
       ),
       body: Column(
         children: [
+          if (topic == null) _TopicsStrip(chatId: widget.chatId),
           Expanded(
             child: ListView.builder(
               reverse: true,
@@ -157,7 +181,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => _send(),
                       decoration: InputDecoration(
-                        hintText: 'Сообщение',
+                        hintText: topic == null
+                            ? 'Сообщение'
+                            : 'Сообщение в теме',
                         filled: true,
                         fillColor: Colors.white,
                         contentPadding: const EdgeInsets.symmetric(
@@ -184,6 +210,169 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Полоса закреплённых тем под заголовком чата.
+class _TopicsStrip extends StatelessWidget {
+  const _TopicsStrip({required this.chatId});
+
+  final String chatId;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final topics = state.topicsOf(chatId);
+
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: lineColor)),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            const Icon(Icons.push_pin_outlined, size: 18, color: muted),
+            const SizedBox(width: 8),
+            for (final t in topics) ...[
+              _TopicChip(chatId: chatId, topic: t),
+              const SizedBox(width: 8),
+            ],
+            ActionChip(
+              avatar: const Icon(Icons.add, size: 18),
+              label: const Text('Новая тема'),
+              onPressed: () => createTopicFlow(context, chatId),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TopicChip extends StatelessWidget {
+  const _TopicChip({required this.chatId, required this.topic});
+
+  final String chatId;
+  final ChatTopic topic;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = context.watch<AppState>().topicMessageCount(topic.id);
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ChatScreen(chatId: chatId, topicId: topic.id),
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: brandSoft,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              topic.title,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: brandDark,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: brandDark,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: const TextStyle(fontSize: 11, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Спрашивает название, создаёт тему и открывает её.
+Future<void> createTopicFlow(BuildContext context, String chatId) async {
+  final title = await showDialog<String>(
+    context: context,
+    builder: (_) => const _NewTopicDialog(),
+  );
+  if (title == null || title.trim().isEmpty || !context.mounted) return;
+
+  final topic = context.read<AppState>().createTopic(chatId, title);
+  await Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => ChatScreen(chatId: chatId, topicId: topic.id),
+    ),
+  );
+}
+
+class _NewTopicDialog extends StatefulWidget {
+  const _NewTopicDialog();
+
+  @override
+  State<_NewTopicDialog> createState() => _NewTopicDialogState();
+}
+
+class _NewTopicDialogState extends State<_NewTopicDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Новая тема'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              hintText: 'Например: Новогодний корпоратив',
+            ),
+            onSubmitted: (v) => Navigator.pop(context, v),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Тема закрепится вверху чата. Её увидят все участники, '
+            'а переписка в ней останется отдельно от основной.',
+            style: TextStyle(fontSize: 12.5, color: muted, height: 1.4),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Отмена'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text),
+          child: const Text('Создать'),
+        ),
+      ],
     );
   }
 }
@@ -228,7 +417,7 @@ class _Bubble extends StatelessWidget {
                   child: Text(
                     sender.name,
                     style: const TextStyle(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: brandDark,
                     ),
                   ),
@@ -243,7 +432,7 @@ class _Bubble extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(2, 4, 2, 0),
                   child: Text(
                     message.text!,
-                    style: const TextStyle(fontSize: 15, height: 1.3),
+                    style: const TextStyle(fontSize: 14.5, height: 1.3),
                   ),
                 ),
               Align(
@@ -322,7 +511,7 @@ class _SharedCard extends StatelessWidget {
                 isReport ? 'Отчёт' : 'Задача',
                 style: const TextStyle(
                   fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: brandDark,
                 ),
               ),
@@ -338,7 +527,7 @@ class _SharedCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             task.title,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
           ),
           if (report != null) ...[
             const SizedBox(height: 6),
@@ -353,7 +542,7 @@ class _SharedCard extends StatelessWidget {
             status,
             style: TextStyle(
               fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: statusColor,
             ),
           ),
@@ -363,7 +552,7 @@ class _SharedCard extends StatelessWidget {
               children: [
                 const Text(
                   'Оценка',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(width: 4),
                 for (var i = 1; i <= 5; i++)

@@ -2,25 +2,56 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../app_state.dart';
+import '../models.dart';
+import '../schedule.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'new_task_screen.dart';
 import 'rating_screen.dart';
+import 'schedule_screen.dart';
 
-/// Главный экран руководителя и собственника: команда и рейтинги.
-class TeamScreen extends StatelessWidget {
+/// Главный экран руководителя и собственника.
+/// Сверху сотрудники с рейтингом и итогами месяца, ниже календарь:
+/// вся команда или выбранный сотрудник, с успеваемостью по дням.
+class TeamScreen extends StatefulWidget {
   const TeamScreen({super.key});
+
+  @override
+  State<TeamScreen> createState() => _TeamScreenState();
+}
+
+class _TeamScreenState extends State<TeamScreen> {
+  /// null: показываем всю команду.
+  String? _selected;
+  final _calendarKey = GlobalKey();
+
+  void _select(String id) {
+    final selecting = _selected != id;
+    setState(() => _selected = selecting ? id : null);
+    if (!selecting) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _calendarKey.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOut,
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final employees = state.employees;
+    final today = dateOnly(DateTime.now());
     final scores = {
       for (final e in employees) e.id: state.ratingFor(e.id).total,
     };
     final average = scores.isEmpty
         ? 0.0
         : scores.values.reduce((a, b) => a + b) / scores.length;
+    final tone = toneForScore(average);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -37,53 +68,53 @@ class TeamScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 96),
           children: [
-            const Text(
-              'Команда',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
-            ),
+            const ScreenTitle('Команда'),
             const SizedBox(height: 14),
             Panel(
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    average.round().toString(),
-                    style: const TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Row(
+                    children: [
+                      ScoreBadge(score: average, big: true),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Средний рейтинг команды',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              verdictForScore(average),
+                              style: TextStyle(fontSize: 12.5, color: tone.fg),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const Text(
-                    ' / 100',
-                    style: TextStyle(fontSize: 15, color: muted),
-                  ),
-                  const SizedBox(width: 16),
-                  const Expanded(
-                    child: Text(
-                      'Средний рейтинг команды',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                    ),
-                  ),
+                  const SizedBox(height: 12),
+                  ScoreBar(value: average, height: 7),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'СОТРУДНИКИ · ${employees.length}',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.6,
-                color: muted,
-              ),
-            ),
+            const SizedBox(height: 20),
+            SectionLabel('Сотрудники · ${employees.length}'),
             const SizedBox(height: 10),
             for (final e in employees) ...[
-              _EmployeeTile(
-                name: e.name,
-                position: e.position,
+              _EmployeeCard(
+                user: e,
                 score: scores[e.id]!,
-                avatar: Avatar(user: e, size: 44),
-                onTap: () => Navigator.of(context).push(
+                selected: _selected == e.id,
+                today: today,
+                onTap: () => _select(e.id),
+                onProfile: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => RatingScreen(userId: e.id),
                   ),
@@ -92,10 +123,33 @@ class TeamScreen extends StatelessWidget {
               const SizedBox(height: 10),
             ],
             const Text(
+              'Нажмите на сотрудника, чтобы увидеть его календарь. '
               'Рейтинг по 100 баллам: 50 в срок, 20 полнота отчёта, '
               '20 качество, 10 дисциплина.',
-              style: TextStyle(fontSize: 13, color: muted, height: 1.45),
+              style: TextStyle(fontSize: 12.5, color: muted, height: 1.45),
             ),
+            const SizedBox(height: 22),
+            Container(
+              key: _calendarKey,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SectionLabel(
+                      _selected == null
+                          ? 'Календарь · вся команда'
+                          : 'Календарь · ${state.userById(_selected!).name}',
+                    ),
+                  ),
+                  if (_selected != null)
+                    TextButton(
+                      onPressed: () => setState(() => _selected = null),
+                      child: const Text('Вся команда'),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            ScheduleView(filter: _selected ?? 'all'),
           ],
         ),
       ),
@@ -103,71 +157,109 @@ class TeamScreen extends StatelessWidget {
   }
 }
 
-class _EmployeeTile extends StatelessWidget {
-  const _EmployeeTile({
-    required this.name,
-    required this.position,
+class _EmployeeCard extends StatelessWidget {
+  const _EmployeeCard({
+    required this.user,
     required this.score,
-    required this.avatar,
+    required this.selected,
+    required this.today,
     required this.onTap,
+    required this.onProfile,
   });
 
-  final String name;
-  final String position;
+  final AppUser user;
   final double score;
-  final Widget avatar;
+  final bool selected;
+  final DateTime today;
   final VoidCallback onTap;
-
-  Color get _color {
-    if (score >= 85) return brand;
-    if (score >= 65) return const Color(0xFFB7791F);
-    return const Color(0xFFC0392B);
-  }
+  final VoidCallback onProfile;
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final tone = toneForScore(score);
+    final shift = state.shiftOf(user.id);
+    final status = state.statusOf(user.id, today);
+    final worked =
+        state.totalsFor(user.id, today.year, today.month, upTo: today);
+    final plan = state.totalsFor(user.id, today.year, today.month);
+
+    final String statusText;
+    final Color statusBg;
+    final Color statusFg;
+    switch (status) {
+      case DayStatus.work:
+        statusText = 'Сегодня смена ${shift.range}';
+        statusBg = const Color(0xFFE3F5EC);
+        statusFg = okColor;
+      case DayStatus.vacation:
+        statusText = 'Сегодня в отпуске';
+        statusBg = const Color(0xFFE3EEFB);
+        statusFg = const Color(0xFF1A5FA0);
+      case DayStatus.off:
+        statusText = 'Сегодня выходной';
+        statusBg = const Color(0xFFF0F3F6);
+        statusFg = muted;
+    }
+
     return Panel(
       onTap: onTap,
+      borderColor: selected ? brand : null,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              avatar,
+              Avatar(user: user, size: 40),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name,
+                      user.name,
                       style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     Text(
-                      position,
-                      style: const TextStyle(fontSize: 14, color: muted),
+                      user.position,
+                      style: const TextStyle(fontSize: 12.5, color: muted),
                     ),
                   ],
                 ),
               ),
-              Text(
-                score.round().toString(),
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+              ScoreBadge(score: score),
+              IconButton(
+                tooltip: 'Рейтинг и разбивка',
+                onPressed: onProfile,
+                icon: const Icon(Icons.insights_outlined, color: muted),
               ),
-              const Icon(Icons.chevron_right, color: muted),
             ],
           ),
           const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: (score / 100).clamp(0.0, 1.0),
-              minHeight: 6,
-              backgroundColor: const Color(0xFFDDE5EA),
-              color: _color,
-            ),
+          ScoreBar(value: score),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Tag(text: statusText, bg: statusBg, fg: statusFg),
+              Tag(
+                text: 'Отработано ${worked.days} из ${plan.days} дн · '
+                    '${worked.hours} ч',
+              ),
+              if (plan.vacationDays > 0)
+                Tag(
+                  text: 'Отпуск ${plan.vacationDays} дн.',
+                  bg: const Color(0xFFE3EEFB),
+                  fg: const Color(0xFF1A5FA0),
+                ),
+              if (score < 65)
+                Tag(text: verdictForScore(score), bg: tone.bg, fg: tone.fg),
+            ],
           ),
         ],
       ),

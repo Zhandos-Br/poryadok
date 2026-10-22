@@ -3,12 +3,15 @@ import 'package:provider/provider.dart';
 
 import '../app_state.dart';
 import '../models.dart';
+import '../ru.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'chat_screen.dart';
+import 'new_chat_screen.dart';
 
 /// Группа «Отчёты команды» и личные чаты с каждым участником.
-/// Сотрудники могут писать друг другу, руководителю и собственнику.
+/// Сотрудники могут писать друг другу, руководителю и собственнику,
+/// а также найти человека по номеру телефона и начать новый чат.
 class ChatListScreen extends StatelessWidget {
   const ChatListScreen({super.key});
 
@@ -20,57 +23,46 @@ class ChatListScreen extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
         children: [
-          const Text(
-            'Чаты',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+          Row(
+            children: [
+              const Expanded(child: ScreenTitle('Чаты')),
+              FilledButton.tonalIcon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const NewChatScreen()),
+                ),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('Новый чат'),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
-          const _SectionLabel('Группа'),
+          const SectionLabel('Группа'),
           const SizedBox(height: 8),
           _ChatTile(
             chatId: groupChatId,
             leading: const CircleAvatar(
-              radius: 23,
+              radius: 22,
               backgroundColor: brandDark,
               child: Icon(Icons.groups_outlined, color: Colors.white),
             ),
           ),
-          const SizedBox(height: 16),
-          const _SectionLabel('Личные'),
+          const SizedBox(height: 18),
+          const SectionLabel('Личные'),
           const SizedBox(height: 8),
-          for (final user in state.otherUsers) ...[
+          for (final user in state.chatPartners) ...[
             _ChatTile(
               chatId: state.directChatId(user.id),
-              leading: Avatar(user: user, size: 46),
+              leading: Avatar(user: user, size: 44),
             ),
             const SizedBox(height: 8),
           ],
           const SizedBox(height: 4),
           const Text(
-            'Сотрудники пишут друг другу и руководителям. '
-            'В любой чат можно переслать задачу или готовый отчёт.',
-            style: TextStyle(fontSize: 13, color: muted, height: 1.45),
+            'В любой чат можно переслать задачу или готовый отчёт '
+            'и создать тему, которая закрепится сверху.',
+            style: TextStyle(fontSize: 12.5, color: muted, height: 1.45),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text.toUpperCase(),
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.6,
-        color: muted,
       ),
     );
   }
@@ -87,6 +79,7 @@ class _ChatTile extends StatelessWidget {
     final state = context.watch<AppState>();
     final last = state.lastMessage(chatId);
     final isGroup = chatId == groupChatId;
+    final topicCount = state.topicsOf(chatId).length;
 
     String preview = 'Пока нет сообщений';
     if (last != null) {
@@ -117,15 +110,15 @@ class _ChatTile extends StatelessWidget {
                       child: Text(
                         state.chatTitle(chatId),
                         style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
                     if (last != null)
                       Text(
                         hhmm(last.sentAt),
-                        style: const TextStyle(fontSize: 12.5, color: muted),
+                        style: const TextStyle(fontSize: 12, color: muted),
                       ),
                   ],
                 ),
@@ -134,8 +127,18 @@ class _ChatTile extends StatelessWidget {
                   preview,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14, color: muted),
+                  style: const TextStyle(fontSize: 13, color: muted),
                 ),
+                if (topicCount > 0) ...[
+                  const SizedBox(height: 6),
+                  Tag(
+                    icon: Icons.push_pin_outlined,
+                    text: '$topicCount '
+                        '${plural(topicCount, 'тема', 'темы', 'тем')}',
+                    bg: brandSoft,
+                    fg: brandDark,
+                  ),
+                ],
               ],
             ),
           ),

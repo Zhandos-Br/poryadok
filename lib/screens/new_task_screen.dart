@@ -108,7 +108,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
             title: const Text('Выполнить до'),
             trailing: Text(
               _time.format(context),
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
             ),
             onTap: _pickTime,
           ),

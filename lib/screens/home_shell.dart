@@ -10,7 +10,7 @@ import 'team_screen.dart';
 import 'today_screen.dart';
 
 /// Нижняя навигация. У сотрудника: Сегодня, Чаты, Мой график, Рейтинг.
-/// У руководителя и собственника: Команда, Чаты, График.
+/// У руководителя и собственника: Команда (с календарём) и Чаты.
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -30,13 +30,12 @@ class _HomeShellState extends State<HomeShell> {
         ? <Widget>[
             const TodayScreen(),
             const ChatListScreen(),
-            const ScheduleScreen(),
+            const MyScheduleScreen(),
             RatingScreen(userId: me.id, embedded: true),
           ]
         : <Widget>[
             const TeamScreen(),
             const ChatListScreen(),
-            const ScheduleScreen(),
           ];
 
     final destinations = isEmployee
@@ -66,10 +65,6 @@ class _HomeShellState extends State<HomeShell> {
             NavigationDestination(
               icon: Icon(Icons.chat_bubble_outline),
               label: 'Чаты',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.calendar_month_outlined),
-              label: 'График',
             ),
           ];
 

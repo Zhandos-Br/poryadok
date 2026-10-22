@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../app_state.dart';
 import '../models.dart';
+import '../ru.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'close_task_screen.dart';
@@ -15,75 +16,118 @@ class TodayScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final tasks = state.myTasks;
+    final tasks = state.todayTasks;
     final done = tasks.where((t) => t.done).length;
-    final score = state.ratingFor(state.me.id).total.round();
+    final score = state.ratingFor(state.me.id).total;
+    final tone = toneForScore(score);
     final progress = tasks.isEmpty ? 0.0 : done / tasks.length;
 
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
         children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: ActionChip(
-              avatar: const Icon(Icons.star, size: 18, color: brandDark),
-              label: Text('Мой рейтинг $score / 100'),
-              backgroundColor: brandSoft,
-              side: BorderSide.none,
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => RatingScreen(userId: state.me.id),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Задачи на сегодня',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 8,
-                    backgroundColor: const Color(0xFFDDE5EA),
-                    color: brand,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dayLong(DateTime.now()),
+                      style: const TextStyle(fontSize: 13, color: muted),
+                    ),
+                    const SizedBox(height: 2),
+                    const ScreenTitle('Задачи на сегодня'),
+                  ],
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                '$done из ${tasks.length}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+              InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => RatingScreen(userId: state.me.id),
+                  ),
+                ),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: tone.bg,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.star_rounded, size: 18, color: tone.bar),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${score.round()}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: tone.fg,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
+          Panel(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 8,
+                      backgroundColor: const Color(0xFFE6EBEF),
+                      color: toneGood.bar,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Сделано $done из ${tasks.length}',
+                  style: const TextStyle(fontSize: 13, color: muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (tasks.isEmpty)
+            const Panel(
+              child: Text(
+                'На сегодня задач нет.',
+                style: TextStyle(fontSize: 14, color: muted),
+              ),
+            ),
           for (final t in tasks) ...[
             _TaskTile(task: t),
             const SizedBox(height: 10),
           ],
           const SizedBox(height: 6),
-          Panel(
+          const Panel(
+            color: brandSoft,
             borderColor: Colors.transparent,
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.chat_bubble_outline, color: brandDark),
+                Icon(Icons.chat_bubble_outline, color: brandDark, size: 20),
                 SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Каждый отчёт сразу попадает в общий чат: '
                     'его видят руководитель и собственник.',
-                    style: TextStyle(color: brandDark, height: 1.35),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: brandDark,
+                      height: 1.4,
+                    ),
                   ),
                 ),
               ],
@@ -102,36 +146,45 @@ class _TaskTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final overdue = task.isOverdue(DateTime.now());
+    final now = DateTime.now();
+    final overdue = task.isOverdue(now);
+    final soon = !task.done &&
+        !overdue &&
+        task.due.difference(now) < const Duration(hours: 2);
 
     late final IconData icon;
-    late final Color iconBg;
-    late final Color iconFg;
+    late final Tone tone;
     late final String status;
-    late final Color statusColor;
+    Color? cardColor;
+    Color? borderColor;
 
     if (task.done) {
-      icon = Icons.check;
-      iconBg = const Color(0xFFDDF5E7);
-      iconFg = okColor;
+      icon = Icons.check_rounded;
+      tone = toneGood;
       status = 'Сдано в ${hhmm(task.report!.submittedAt)}';
-      statusColor = okColor;
     } else if (overdue) {
-      icon = Icons.warning_amber_rounded;
-      iconBg = const Color(0xFFFDE8E6);
-      iconFg = badColor;
+      icon = Icons.priority_high_rounded;
+      tone = toneBad;
       status = 'Просрочено · до ${hhmm(task.due)}';
-      statusColor = badColor;
+      cardColor = const Color(0xFFFFF8F7);
+      borderColor = const Color(0xFFF1C7C2);
+    } else if (soon) {
+      icon = Icons.schedule;
+      tone = toneMid;
+      status = 'Скоро · до ${hhmm(task.due)}';
     } else {
       icon = Icons.radio_button_unchecked;
-      iconBg = const Color(0xFFE9EEF2);
-      iconFg = const Color(0xFF3B4C5B);
+      tone = const Tone(
+        bar: Color(0xFF8FA0B0),
+        bg: Color(0xFFF0F3F6),
+        fg: Color(0xFF3B4C5B),
+      );
       status = 'До ${hhmm(task.due)}';
-      statusColor = muted;
     }
 
     return Panel(
-      borderColor: overdue ? const Color(0xFFE4A199) : null,
+      color: cardColor,
+      borderColor: borderColor,
       onTap: task.done
           ? null
           : () => Navigator.of(context).push(
@@ -142,9 +195,9 @@ class _TaskTile extends StatelessWidget {
       child: Row(
         children: [
           CircleAvatar(
-            radius: 20,
-            backgroundColor: iconBg,
-            child: Icon(icon, color: iconFg),
+            radius: 18,
+            backgroundColor: tone.bg,
+            child: Icon(icon, color: tone.fg, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -154,27 +207,31 @@ class _TaskTile extends StatelessWidget {
                 Text(
                   task.title,
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: task.done ? muted : null,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w500,
+                    color: task.done ? muted : ink,
+                    height: 1.3,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Wrap(
-                  spacing: 6,
+                  spacing: 10,
                   runSpacing: 6,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Text(
-                      status,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: statusColor,
-                      ),
-                    ),
+                    Tag(text: status, bg: tone.bg, fg: tone.fg),
                     for (final k in task.requiredKinds)
-                      Tag(text: k.label, icon: k.icon),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(k.icon, size: 14, color: muted),
+                          const SizedBox(width: 3),
+                          Text(
+                            k.label,
+                            style: const TextStyle(fontSize: 12, color: muted),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ],
