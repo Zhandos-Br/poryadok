@@ -119,7 +119,8 @@ class WallpaperBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final w = wallpapers[index.clamp(0, wallpapers.length - 1)];
+    final last = wallpapers.length - 1;
+    final w = wallpapers[index < 0 ? 0 : (index > last ? last : index)];
     final dark = Theme.of(context).brightness == Brightness.dark;
     final base = dark ? w.dark : w.light;
     final mark = dark ? const Color(0x14FFFFFF) : const Color(0x14000000);

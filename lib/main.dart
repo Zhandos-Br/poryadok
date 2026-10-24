@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'app_state.dart';
 import 'screens/home_shell.dart';
 import 'screens/register_screen.dart';
+import 'settings.dart';
 import 'theme.dart';
 
 void main() {
