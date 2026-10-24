@@ -168,6 +168,10 @@ class _TaskTile extends StatelessWidget {
       status = 'Просрочено · до ${hhmm(task.due)}';
       cardColor = const Color(0xFFFFF8F7);
       borderColor = const Color(0xFFF1C7C2);
+    } else if (!task.accepted) {
+      icon = Icons.mark_email_unread_outlined;
+      tone = toneMid;
+      status = 'Новая: примите · до ${hhmm(task.due)}';
     } else if (soon) {
       icon = Icons.schedule;
       tone = toneMid;

@@ -168,6 +168,9 @@ class TaskItem {
     required this.due,
     required this.requiredKinds,
     this.repeat = Repeat.once,
+    this.assignedById,
+    this.seriesId,
+    this.acceptedAt,
     this.report,
   });
 
@@ -184,6 +187,18 @@ class TaskItem {
   final Repeat repeat;
 
   bool get repeatDaily => repeat != Repeat.once;
+
+  /// Кто поставил задачу.
+  final String? assignedById;
+
+  /// Общий номер повторяющихся задач одной серии.
+  final String? seriesId;
+
+  /// Когда сотрудник принял задачу в работу. Пока пусто, задача
+  /// только отправлена: сам факт отправки не значит, что человек её увидел.
+  DateTime? acceptedAt;
+
+  bool get accepted => acceptedAt != null;
 
   Report? report;
 

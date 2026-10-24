@@ -6,6 +6,7 @@ import '../models.dart';
 import '../settings.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'close_task_screen.dart';
 import 'new_task_screen.dart';
 
 /// Один чат: общий или личный. Работает одинаково для всех ролей.
@@ -514,16 +515,33 @@ class _SharedCard extends StatelessWidget {
     } else if (task.isOverdue(DateTime.now())) {
       status = 'Просрочена · до ${hhmm(task.due)}';
       statusColor = badColor;
+    } else if (!task.accepted) {
+      status = 'Не принята · до ${hhmm(task.due)}';
+      statusColor = badColor;
     } else {
-      status = 'До ${hhmm(task.due)} · в работе';
+      status = 'Принята в ${hhmm(task.acceptedAt!)} · до ${hhmm(task.due)}';
       statusColor = warnColor;
     }
 
-    return Container(
+    // Свою задачу сотрудник может открыть, принять и выполнить прямо отсюда.
+    final mine = !isReport && !task.done && task.assigneeId == state.me.id;
+
+    return Material(
+      color: paletteOf(context).card,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: mine
+            ? () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => CloseTaskScreen(taskId: task.id),
+                  ),
+                )
+            : null,
+        child: Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: paletteOf(context).card,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: paletteOf(context).line),
       ),
@@ -580,6 +598,33 @@ class _SharedCard extends StatelessWidget {
               color: statusColor,
             ),
           ),
+          if (mine && !task.accepted) ...[
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: () => state.acceptTask(task.id),
+              style: FilledButton.styleFrom(
+                backgroundColor: brand,
+                minimumSize: const Size.fromHeight(44),
+              ),
+              icon: const Icon(Icons.check, size: 20),
+              label: const Text('Принять в работу'),
+            ),
+          ],
+          if (mine && task.accepted) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => CloseTaskScreen(taskId: task.id),
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(44),
+              ),
+              icon: const Icon(Icons.assignment_turned_in_outlined, size: 20),
+              label: const Text('Выполнить и сдать отчёт'),
+            ),
+          ],
           if (canRate) ...[
             const Divider(height: 16),
             Row(
@@ -609,6 +654,8 @@ class _SharedCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+        ),
       ),
     );
   }

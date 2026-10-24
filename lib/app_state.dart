@@ -26,6 +26,10 @@ class AppState extends ChangeNotifier {
     _seedSchedule();
     _seedHistory();
     _seedTopics();
+    // Задачи из демо-данных уже приняты в работу.
+    for (final t in tasks) {
+      t.acceptedAt = t.due.subtract(const Duration(hours: 3));
+    }
   }
 
   final List<AppUser> users = [
@@ -384,6 +388,7 @@ class AppState extends ChangeNotifier {
     final first = <TaskItem>[];
     for (final id in assigneeIds) {
       TaskItem? head;
+      final series = _nextId('s');
       final span = repeat == Repeat.once ? 0 : 30;
       for (var offset = 0; offset <= span; offset++) {
         final day = DateTime(start.year, start.month, start.day + offset);
@@ -395,6 +400,8 @@ class AppState extends ChangeNotifier {
           due: DateTime(day.year, day.month, day.day, due.hour, due.minute),
           requiredKinds: requiredKinds,
           repeat: repeat,
+          assignedById: _me?.id,
+          seriesId: series,
         );
         tasks.add(task);
         head ??= task;
@@ -403,6 +410,49 @@ class AppState extends ChangeNotifier {
     }
     notifyListeners();
     return first;
+  }
+
+  /// Сотрудник принимает задачу в работу. Для повторяющейся задачи
+  /// принимается вся серия. Руководителю в личный чат уходит сообщение.
+  void acceptTask(String taskId) {
+    final task = taskById(taskId);
+    if (task.accepted || task.assigneeId != me.id) return;
+    final now = DateTime.now();
+    final series = task.seriesId;
+    for (final t in tasks) {
+      if (t.accepted) continue;
+      if (t.id == task.id || (series != null && t.seriesId == series)) {
+        t.acceptedAt = now;
+      }
+    }
+    final by = task.assignedById;
+    if (by != null && by != me.id) {
+      _addMessage(
+        chatId: directChatId(by),
+        senderId: me.id,
+        type: MessageType.text,
+        text: 'Принял(а) задачу «${task.title}»',
+      );
+    }
+    notifyListeners();
+  }
+
+  /// Задачи компании, которые сотрудники ещё не приняли в работу.
+  /// Из серии повторов показывается ближайшая задача.
+  List<TaskItem> get unacceptedTasks {
+    if (!canManage) return const [];
+    final seen = <String>{};
+    final list = tasks
+        .where((t) =>
+            !t.accepted &&
+            !t.done &&
+            userById(t.assigneeId).companyId == me.companyId)
+        .toList()
+      ..sort((a, b) => a.due.compareTo(b.due));
+    return [
+      for (final t in list)
+        if (seen.add(t.seriesId ?? t.id)) t,
+    ];
   }
 
   static bool _occurs(Repeat repeat, DateTime start, DateTime day) {

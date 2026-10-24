@@ -90,7 +90,8 @@ class _CloseTaskScreenState extends State<CloseTaskScreen> {
   @override
   Widget build(BuildContext context) {
     final task = context.watch<AppState>().taskById(widget.taskId);
-    final canSend = _canSend(task);
+    final accepted = task.accepted;
+    final canSend = accepted && _canSend(task);
 
     return Scaffold(
       appBar: AppBar(),
@@ -106,7 +107,52 @@ class _CloseTaskScreenState extends State<CloseTaskScreen> {
             'До ${hhmm(task.due)}',
             style: const TextStyle(color: muted, fontSize: 14),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          if (!accepted) ...[
+            Panel(
+              color: toneMid.bg,
+              borderColor: Colors.transparent,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Задача ещё не принята',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: toneMid.fg,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Нажмите «Принять», чтобы взять задачу в работу. '
+                    'Руководитель увидит, что вы её приняли.',
+                    style: TextStyle(fontSize: 13, color: toneMid.fg, height: 1.4),
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton.icon(
+                    onPressed: () =>
+                        context.read<AppState>().acceptTask(task.id),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: brand,
+                      minimumSize: const Size.fromHeight(46),
+                    ),
+                    icon: const Icon(Icons.check),
+                    label: const Text('Принять в работу'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ] else ...[
+            Tag(
+              icon: Icons.check_circle_outline,
+              text: 'Принята в работу в ${hhmm(task.acceptedAt!)}',
+              bg: toneGood.bg,
+              fg: toneGood.fg,
+            ),
+            const SizedBox(height: 16),
+          ],
           const Text(
             'ЧТО СДАТЬ В ОТЧЁТЕ',
             style: TextStyle(
@@ -176,12 +222,17 @@ class _CloseTaskScreenState extends State<CloseTaskScreen> {
           ),
           const SizedBox(height: 20),
           if (!canSend)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                'Добавьте всё обязательное, чтобы отправить отчёт',
+                accepted
+                    ? 'Добавьте всё обязательное, чтобы отправить отчёт'
+                    : 'Сначала примите задачу в работу',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: warnColor, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  color: warnColor,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           SizedBox(

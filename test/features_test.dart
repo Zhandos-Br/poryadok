@@ -293,6 +293,46 @@ void main() {
     });
   });
 
+  group('принятие задачи', () {
+    TaskItem create(AppState s) => s.addTask(
+          title: 'Протереть витрины',
+          assigneeIds: ['e1'],
+          due: DateTime.now().add(const Duration(hours: 2)),
+          requiredKinds: {ReportKind.photo},
+          repeat: Repeat.daily,
+        ).first;
+
+    test('новая задача не принята, пока сотрудник не нажал', () {
+      final s = AppState()..signInAsUser('m1');
+      final t = create(s);
+      expect(t.accepted, isFalse);
+      expect(s.unacceptedTasks.any((x) => x.id == t.id), isTrue);
+    });
+
+    test('сотрудник принимает серию и руководитель получает сообщение', () {
+      final s = AppState()..signInAsUser('m1');
+      final t = create(s);
+      s.signInAsUser('e1');
+      final before = s.messagesOf(s.directChatId('m1')).length;
+      s.acceptTask(t.id);
+      expect(s.taskById(t.id).accepted, isTrue);
+      expect(
+        s.tasks.where((x) => x.seriesId == t.seriesId).every((x) => x.accepted),
+        isTrue,
+      );
+      expect(s.messagesOf(s.directChatId('m1')).length, before + 1);
+      s.signInAsUser('m1');
+      expect(s.unacceptedTasks.any((x) => x.id == t.id), isFalse);
+    });
+
+    test('чужую задачу принять нельзя', () {
+      final s = AppState()..signInAsUser('m1');
+      final t = create(s);
+      s.acceptTask(t.id);
+      expect(s.taskById(t.id).accepted, isFalse);
+    });
+  });
+
   group('задачи из чата', () {
     test('разовая задача создаётся одна и уходит сообщением в чат', () {
       final state = AppState()..signInAsUser('m1');

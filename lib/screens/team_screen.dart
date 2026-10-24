@@ -124,6 +124,36 @@ class _TeamScreenState extends State<TeamScreen> {
               ),
             ),
             const SizedBox(height: 20),
+            if (state.unacceptedTasks.isNotEmpty) ...[
+              Panel(
+                color: toneMid.bg,
+                borderColor: Colors.transparent,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Не приняли задачу: ${state.unacceptedTasks.length}',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: toneMid.fg,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    for (final t in state.unacceptedTasks.take(5))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '${state.userById(t.assigneeId).name} — ${t.title} '
+                          '(до ${hhmm(t.due)})',
+                          style: TextStyle(fontSize: 13, color: toneMid.fg),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
             SectionLabel('Сотрудники · ${employees.length}'),
             const SizedBox(height: 10),
             for (final e in employees) ...[
