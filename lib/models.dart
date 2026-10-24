@@ -41,7 +41,7 @@ class AppUser {
     this.phone = '',
     this.passport,
     this.photo,
-    this.external = false,
+    this.companyId,
   });
 
   final String id;
@@ -61,9 +61,75 @@ class AppUser {
   /// Фото профиля.
   final Uint8List? photo;
 
-  /// Человек не из команды: с ним можно переписываться, но он не в графике
-  /// и не в рейтинге.
-  final bool external;
+  /// Компания, в которой человек состоит. Пусто у обычного пользователя:
+  /// с ним можно переписываться, но он не в графике и не в рейтинге.
+  final String? companyId;
+
+  /// Человек без компании.
+  bool get external => companyId == null;
+
+  AppUser copyWith({String? companyId, Role? role, String? position}) {
+    return AppUser(
+      id: id,
+      name: name,
+      position: position ?? this.position,
+      role: role ?? this.role,
+      nickname: nickname,
+      phone: phone,
+      passport: passport,
+      photo: photo,
+      companyId: companyId ?? this.companyId,
+    );
+  }
+}
+
+class Company {
+  const Company({required this.id, required this.name});
+
+  final String id;
+  final String name;
+}
+
+enum InviteStatus { pending, accepted, declined }
+
+/// Приглашение в компанию. Его создаёт руководитель или собственник
+/// на номер телефона. Если человек уже зарегистрирован, приглашение
+/// придёт ему в приложение, иначе он введёт код при регистрации.
+class CompanyInvite {
+  CompanyInvite({
+    required this.id,
+    required this.companyId,
+    required this.phone,
+    required this.code,
+    required this.role,
+    required this.position,
+    required this.createdById,
+    required this.createdAt,
+    this.status = InviteStatus.pending,
+  });
+
+  final String id;
+  final String companyId;
+  final String phone;
+  final String code;
+  final Role role;
+  final String position;
+  final String createdById;
+  final DateTime createdAt;
+  InviteStatus status;
+}
+
+/// Как часто повторяется задача.
+enum Repeat { once, daily, weekdays, weekly, monthly }
+
+extension RepeatX on Repeat {
+  String get label => switch (this) {
+        Repeat.once => 'Разовая',
+        Repeat.daily => 'Каждый день',
+        Repeat.weekdays => 'По будням',
+        Repeat.weekly => 'Раз в неделю',
+        Repeat.monthly => 'Раз в месяц',
+      };
 }
 
 class Report {
@@ -93,7 +159,7 @@ class TaskItem {
     required this.assigneeId,
     required this.due,
     required this.requiredKinds,
-    this.repeatDaily = false,
+    this.repeat = Repeat.once,
     this.report,
   });
 
@@ -105,9 +171,11 @@ class TaskItem {
   /// Что обязательно сдать в отчёте.
   final Set<ReportKind> requiredKinds;
 
-  /// Должностная обязанность: повторяется каждый день.
-  /// Сам повтор нужно реализовать на сервере (см. README).
-  final bool repeatDaily;
+  /// Периодичность. Повторяющаяся задача это должностная обязанность.
+  /// Повторы нужно создавать на сервере (см. README).
+  final Repeat repeat;
+
+  bool get repeatDaily => repeat != Repeat.once;
 
   Report? report;
 

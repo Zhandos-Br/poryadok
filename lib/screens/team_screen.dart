@@ -6,6 +6,7 @@ import '../models.dart';
 import '../schedule.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'invite_screen.dart';
 import 'new_task_screen.dart';
 import 'employee_tasks_screen.dart';
 import 'schedule_screen.dart';
@@ -68,7 +69,20 @@ class _TeamScreenState extends State<TeamScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 96),
           children: [
-            const ScreenTitle('Команда'),
+            Row(
+              children: [
+                const Expanded(child: ScreenTitle('Команда')),
+                FilledButton.tonalIcon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const InviteScreen(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+                  label: const Text('Пригласить'),
+                ),
+              ],
+            ),
             const SizedBox(height: 14),
             Panel(
               child: Column(

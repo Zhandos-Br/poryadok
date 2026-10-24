@@ -1,3 +1,4 @@
+import 'dart:math' show Random;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -7,7 +8,14 @@ import 'models.dart';
 import 'rating.dart';
 import 'schedule.dart';
 
+/// Общий чат демо-компании «Рассвет». У других компаний свой: 'g:<id>'.
 const groupChatId = 'group';
+
+String groupChatOf(String companyId) =>
+    companyId == 'c1' ? groupChatId : 'g:$companyId';
+
+bool isGroupChat(String chatId) =>
+    chatId == groupChatId || chatId.startsWith('g:');
 
 /// Всё состояние приложения в памяти. Данные демонстрационные.
 /// В рабочей версии заменяется на Supabase или Firebase (см. README).
@@ -22,6 +30,7 @@ class AppState extends ChangeNotifier {
   final List<AppUser> users = [
     AppUser(
       id: 'o1',
+      companyId: 'c1',
       name: 'Собственник',
       position: 'Собственник бизнеса',
       role: Role.owner,
@@ -30,6 +39,7 @@ class AppState extends ChangeNotifier {
     ),
     AppUser(
       id: 'm1',
+      companyId: 'c1',
       name: 'Руководитель',
       position: 'Руководитель',
       role: Role.manager,
@@ -38,6 +48,7 @@ class AppState extends ChangeNotifier {
     ),
     AppUser(
       id: 'e1',
+      companyId: 'c1',
       name: 'Айгерим',
       position: 'Продавец-кассир',
       role: Role.employee,
@@ -46,6 +57,7 @@ class AppState extends ChangeNotifier {
     ),
     AppUser(
       id: 'e2',
+      companyId: 'c1',
       name: 'Данияр',
       position: 'Кладовщик',
       role: Role.employee,
@@ -54,6 +66,7 @@ class AppState extends ChangeNotifier {
     ),
     AppUser(
       id: 'e3',
+      companyId: 'c1',
       name: 'Марат',
       position: 'Курьер',
       role: Role.employee,
@@ -62,6 +75,7 @@ class AppState extends ChangeNotifier {
     ),
     AppUser(
       id: 'e4',
+      companyId: 'c1',
       name: 'Светлана',
       position: 'Продавец',
       role: Role.employee,
@@ -75,10 +89,13 @@ class AppState extends ChangeNotifier {
       role: Role.employee,
       nickname: 'erlan_b',
       phone: '+7 777 123 45 67',
-      external: true,
     ),
   ];
 
+  final List<Company> companies = const [
+    Company(id: 'c1', name: 'Магазин «Рассвет»'),
+  ].toList();
+  final List<CompanyInvite> invites = [];
   final List<TaskItem> tasks = [];
   final List<ChatMessage> messages = [];
 
@@ -87,8 +104,173 @@ class AppState extends ChangeNotifier {
 
   AppUser get me => _me!;
 
-  void signInAs(Role role) {
-    _me = users.firstWhere((u) => u.role == role);
+  bool get signedIn => _me != null;
+
+  void signInAsUser(String userId) {
+    _me = userById(userId);
+    notifyListeners();
+  }
+
+  /// Вход по номеру телефона. Возвращает текст ошибки или null.
+  /// В рабочей версии здесь будет код из SMS.
+  String? signInByPhone(String phone) {
+    final user = findUserByPhone(phone);
+    if (user == null) {
+      return 'Такой номер не зарегистрирован. Зарегистрируйтесь.';
+    }
+    _me = user;
+    notifyListeners();
+    return null;
+  }
+
+  void signOut() {
+    _me = null;
+    notifyListeners();
+  }
+
+  // ---------- Компания и приглашения ----------
+
+  Company? companyById(String id) {
+    for (final c in companies) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
+  Company? get myCompany =>
+      me.companyId == null ? null : companyById(me.companyId!);
+
+  /// Руководитель или собственник компании.
+  bool get canManage => me.companyId != null && me.role != Role.employee;
+
+  /// Можно ли поставить задачу прямо из этого чата: в общем чате
+  /// своей компании или в личном чате с её сотрудником.
+  bool canAssignIn(String chatId) {
+    if (!canManage) return false;
+    if (isGroupChat(chatId)) return chatId == myGroupChatId;
+    final other = userById(otherParticipant(chatId));
+    return other.companyId == me.companyId && other.role == Role.employee;
+  }
+
+  /// Общий чат компании, в которой состоит текущий пользователь.
+  String? get myGroupChatId =>
+      me.companyId == null ? null : groupChatOf(me.companyId!);
+
+  static bool _samePhone(String a, String b) {
+    final x = _digits(a), y = _digits(b);
+    if (x.length < 10 || y.length < 10) return false;
+    return x.substring(x.length - 10) == y.substring(y.length - 10);
+  }
+
+  /// Приглашения, которые ждут решения текущего пользователя.
+  List<CompanyInvite> get pendingInvitesForMe {
+    if (me.companyId != null) return const [];
+    return invites
+        .where((i) =>
+            i.status == InviteStatus.pending && _samePhone(i.phone, me.phone))
+        .toList();
+  }
+
+  /// Приглашения, отправленные от лица компании текущего пользователя.
+  List<CompanyInvite> get sentInvites {
+    final list = invites.where((i) => i.companyId == me.companyId).toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
+  static const _codeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+  String _newCode() {
+    final rnd = Random();
+    while (true) {
+      final code = List.generate(
+        6,
+        (_) => _codeAlphabet[rnd.nextInt(_codeAlphabet.length)],
+      ).join();
+      if (!invites.any((i) => i.code == code)) return code;
+    }
+  }
+
+  /// Руководитель или собственник приглашает человека по номеру.
+  /// Если номер уже зарегистрирован, приглашение придёт человеку
+  /// в приложение. Иначе ему нужно отправить код: его вводят при регистрации.
+  InviteResult createInvite({
+    required String phone,
+    required Role role,
+    String position = '',
+  }) {
+    if (!canManage) {
+      return const InviteResult(error: 'Приглашать может руководитель или собственник');
+    }
+    if (_digits(phone).length < 10) {
+      return const InviteResult(error: 'Введите номер полностью');
+    }
+    final existing = findUserByPhone(phone);
+    if (existing != null && existing.companyId != null) {
+      return const InviteResult(error: 'Этот человек уже состоит в компании');
+    }
+    for (final i in invites) {
+      if (i.status == InviteStatus.pending &&
+          i.companyId == me.companyId &&
+          _samePhone(i.phone, phone)) {
+        return InviteResult(invite: i, userExists: existing != null);
+      }
+    }
+    final invite = CompanyInvite(
+      id: _nextId('i'),
+      companyId: me.companyId!,
+      phone: phone.trim(),
+      code: _newCode(),
+      role: role,
+      position: position.trim(),
+      createdById: me.id,
+      createdAt: DateTime.now(),
+    );
+    invites.add(invite);
+    notifyListeners();
+    return InviteResult(invite: invite, userExists: existing != null);
+  }
+
+  String _positionFor(Role role, String position) {
+    if (position.trim().isNotEmpty) return position.trim();
+    return switch (role) {
+      Role.owner => 'Собственник бизнеса',
+      Role.manager => 'Руководитель',
+      Role.employee => 'Сотрудник',
+    };
+  }
+
+  void _replaceUser(AppUser updated) {
+    final i = users.indexWhere((u) => u.id == updated.id);
+    if (i >= 0) users[i] = updated;
+    if (_me?.id == updated.id) _me = updated;
+  }
+
+  void _announceJoin(AppUser user, String companyId) {
+    _addMessage(
+      chatId: groupChatOf(companyId),
+      senderId: user.id,
+      type: MessageType.text,
+      text: 'Вступил(а) в команду',
+    );
+  }
+
+  /// Человек принимает приглашение и сразу попадает в команду.
+  void acceptInvite(String inviteId) {
+    final invite = invites.firstWhere((i) => i.id == inviteId);
+    invite.status = InviteStatus.accepted;
+    final joined = me.copyWith(
+      companyId: invite.companyId,
+      role: invite.role,
+      position: _positionFor(invite.role, invite.position),
+    );
+    _replaceUser(joined);
+    _announceJoin(joined, invite.companyId);
+    notifyListeners();
+  }
+
+  void declineInvite(String inviteId) {
+    invites.firstWhere((i) => i.id == inviteId).status = InviteStatus.declined;
     notifyListeners();
   }
 
@@ -100,7 +282,10 @@ class AppState extends ChangeNotifier {
 
   /// Сотрудники команды: они есть в графике и рейтинге.
   List<AppUser> get employees => users
-      .where((u) => u.role == Role.employee && !u.external)
+      .where((u) =>
+          u.role == Role.employee &&
+          u.companyId != null &&
+          u.companyId == _me?.companyId)
       .toList();
 
   List<AppUser> get otherUsers => users.where((u) => u.id != me.id).toList();
@@ -109,7 +294,9 @@ class AppState extends ChangeNotifier {
   /// с кем уже начат разговор.
   List<AppUser> get chatPartners => users
       .where((u) =>
-          u.id != me.id && (!u.external || hasChat(directChatId(u.id))))
+          u.id != me.id &&
+          ((u.companyId != null && u.companyId == me.companyId) ||
+              hasChat(directChatId(u.id))))
       .toList();
 
   List<TaskItem> get myTasks {
@@ -133,32 +320,62 @@ class AppState extends ChangeNotifier {
     final list = tasks
         .where((t) =>
             t.day == today &&
-            (me.role != Role.employee || t.assigneeId == me.id))
+            (me.role == Role.employee
+                ? t.assigneeId == me.id
+                : userById(t.assigneeId).companyId == me.companyId))
         .toList();
     list.sort((a, b) => a.due.compareTo(b.due));
     return list;
   }
 
-  void addTask({
+  /// Ставит задачу. Повторяющаяся задача создаётся на 30 дней вперёд:
+  /// в рабочей версии повторы создаёт сервер.
+  /// Возвращает по одной (ближайшей) задаче на каждого исполнителя.
+  List<TaskItem> addTask({
     required String title,
     required List<String> assigneeIds,
     required DateTime due,
     required Set<ReportKind> requiredKinds,
-    bool repeatDaily = false,
+    Repeat repeat = Repeat.once,
   }) {
+    final start = dateOnly(due);
+    final first = <TaskItem>[];
     for (final id in assigneeIds) {
-      tasks.add(
-        TaskItem(
+      TaskItem? head;
+      final span = repeat == Repeat.once ? 0 : 30;
+      for (var offset = 0; offset <= span; offset++) {
+        final day = DateTime(start.year, start.month, start.day + offset);
+        if (!_occurs(repeat, start, day)) continue;
+        final task = TaskItem(
           id: _nextId('t'),
           title: title,
           assigneeId: id,
-          due: due,
+          due: DateTime(day.year, day.month, day.day, due.hour, due.minute),
           requiredKinds: requiredKinds,
-          repeatDaily: repeatDaily,
-        ),
-      );
+          repeat: repeat,
+        );
+        tasks.add(task);
+        head ??= task;
+      }
+      if (head != null) first.add(head);
     }
     notifyListeners();
+    return first;
+  }
+
+  static bool _occurs(Repeat repeat, DateTime start, DateTime day) {
+    switch (repeat) {
+      case Repeat.once:
+        return day == start;
+      case Repeat.daily:
+        return true;
+      case Repeat.weekdays:
+        return day.weekday <= 5;
+      case Repeat.weekly:
+        return day.weekday == start.weekday;
+      case Repeat.monthly:
+        return day.day == start.day;
+    }
   }
 
   /// Сотрудник сдаёт отчёт. Он сразу дублируется в общий чат.
@@ -175,13 +392,16 @@ class AppState extends ChangeNotifier {
       comment: comment,
       media: media,
     );
-    _addMessage(
-      chatId: groupChatId,
-      senderId: task.assigneeId,
-      type: MessageType.report,
-      taskId: taskId,
-      text: comment,
-    );
+    final companyId = userById(task.assigneeId).companyId;
+    if (companyId != null) {
+      _addMessage(
+        chatId: groupChatOf(companyId),
+        senderId: task.assigneeId,
+        type: MessageType.report,
+        taskId: taskId,
+        text: comment,
+      );
+    }
     notifyListeners();
   }
 
@@ -216,7 +436,7 @@ class AppState extends ChangeNotifier {
   }
 
   String chatTitle(String chatId) {
-    if (chatId == groupChatId) return 'Отчёты команды';
+    if (isGroupChat(chatId)) return 'Отчёты команды';
     return userById(otherParticipant(chatId)).name;
   }
 
@@ -341,13 +561,16 @@ class AppState extends ChangeNotifier {
     return id;
   }
 
-  /// Код приглашения демо-компании.
-  static const companyInviteCode = 'PORYADOK';
-
-  /// Регистрирует человека и входит под ним.
-  /// Возвращает текст ошибки или null, если всё получилось.
-  /// С верным кодом приглашения человек попадает в команду,
-  /// без кода получает личный аккаунт.
+  /// Регистрирует человека и входит под ним. Возвращает текст ошибки
+  /// или null, если всё получилось.
+  ///
+  /// Все регистрируются одинаково, как обычные пользователи.
+  /// Дальше есть два пути:
+  /// - руководитель или собственник бизнеса ставит галочку, указывает
+  ///   название компании и свою роль, компания создаётся;
+  /// - сотрудник вводит код приглашения, который прислал руководитель
+  ///   или собственник на его номер, и попадает в команду.
+  /// Без кода остаётся личный аккаунт: приглашение можно принять позже.
   String? register({
     required String fullName,
     required String nickname,
@@ -355,33 +578,76 @@ class AppState extends ChangeNotifier {
     String passport = '',
     String invite = '',
     Uint8List? photo,
+    bool isBusiness = false,
+    String companyName = '',
+    Role businessRole = Role.owner,
   }) {
     if (findUserByPhone(phone) != null) {
-      return 'Этот номер уже зарегистрирован';
+      return 'Этот номер уже зарегистрирован. Войдите по номеру.';
     }
     final nick = nickname.trim().replaceFirst(RegExp(r'^@'), '');
     if (users.any((u) => u.nickname.toLowerCase() == nick.toLowerCase())) {
       return 'Такой никнейм уже занят';
     }
-    final code = invite.trim();
-    final joined = code.toUpperCase() == companyInviteCode;
-    if (code.isNotEmpty && !joined) {
-      return 'Код приглашения не подошёл';
+    if (isBusiness && companyName.trim().isEmpty) {
+      return 'Укажите название компании';
+    }
+
+    CompanyInvite? byCode;
+    final code = invite.trim().toUpperCase();
+    if (!isBusiness && code.isNotEmpty) {
+      for (final i in invites) {
+        if (i.status == InviteStatus.pending &&
+            i.code == code &&
+            _samePhone(i.phone, phone)) {
+          byCode = i;
+        }
+      }
+      if (byCode == null) {
+        return 'Код не подошёл. Проверьте код и номер, на который он был отправлен.';
+      }
+    }
+
+    String? companyId;
+    var role = Role.employee;
+    var position = 'Личный аккаунт';
+    if (isBusiness) {
+      companyId = _nextId('c');
+      companies.add(Company(id: companyId, name: companyName.trim()));
+      role = businessRole;
+      position = _positionFor(role, '');
+    } else if (byCode != null) {
+      companyId = byCode.companyId;
+      role = byCode.role;
+      position = _positionFor(role, byCode.position);
     }
 
     final user = AppUser(
       id: _nextId('u'),
       name: fullName.trim(),
-      position: joined ? 'Сотрудник' : 'Личный аккаунт',
-      role: Role.employee,
+      position: position,
+      role: role,
       nickname: nick,
       phone: phone.trim(),
       passport: passport.trim().isEmpty ? null : passport.trim(),
       photo: photo,
-      external: !joined,
+      companyId: companyId,
     );
     users.add(user);
+    byCode?.status = InviteStatus.accepted;
     _me = user;
+    if (companyId != null) {
+      if (isBusiness) {
+        _addMessage(
+          chatId: groupChatOf(companyId),
+          senderId: user.id,
+          type: MessageType.text,
+          text: 'Компания «${companyName.trim()}» создана. Приглашайте сотрудников.',
+        );
+      } else {
+        _announceJoin(user, companyId);
+      }
+    }
     notifyListeners();
     return null;
   }
@@ -690,6 +956,30 @@ class AppState extends ChangeNotifier {
 
   void _seed() {
     final today = DateTime.now();
+    invites.addAll([
+      // Ерлан уже зарегистрирован: приглашение придёт ему в приложение.
+      CompanyInvite(
+        id: 'i1',
+        companyId: 'c1',
+        phone: '+7 777 123 45 67',
+        code: 'ERLAN1',
+        role: Role.employee,
+        position: 'Продавец',
+        createdById: 'm1',
+        createdAt: today,
+      ),
+      // Для проверки регистрации по коду.
+      CompanyInvite(
+        id: 'i2',
+        companyId: 'c1',
+        phone: '+7 700 555 11 22',
+        code: 'RASSVET',
+        role: Role.employee,
+        position: 'Продавец',
+        createdById: 'm1',
+        createdAt: today,
+      ),
+    ]);
     DateTime at(int h, [int m = 0]) =>
         DateTime(today.year, today.month, today.day, h, m);
 
@@ -700,7 +990,7 @@ class AppState extends ChangeNotifier {
         assigneeId: 'e1',
         due: at(9),
         requiredKinds: {ReportKind.photo},
-        repeatDaily: true,
+        repeat: Repeat.daily,
         report: Report(
           submittedAt: at(8, 57),
           kinds: {ReportKind.photo},
@@ -727,7 +1017,7 @@ class AppState extends ChangeNotifier {
         assigneeId: 'e1',
         due: at(21),
         requiredKinds: {ReportKind.photo, ReportKind.text},
-        repeatDaily: true,
+        repeat: Repeat.daily,
       ),
       TaskItem(
         id: 't5',
@@ -735,7 +1025,7 @@ class AppState extends ChangeNotifier {
         assigneeId: 'e1',
         due: at(22),
         requiredKinds: {ReportKind.video, ReportKind.audio},
-        repeatDaily: true,
+        repeat: Repeat.daily,
       ),
       TaskItem(
         id: 't6',
@@ -810,4 +1100,15 @@ class AppState extends ChangeNotifier {
       at: at(10, 50),
     );
   }
+}
+
+/// Результат приглашения: либо ошибка, либо созданное приглашение.
+class InviteResult {
+  const InviteResult({this.error, this.invite, this.userExists = false});
+
+  final String? error;
+  final CompanyInvite? invite;
+
+  /// Человек уже зарегистрирован: приглашение придёт ему в приложение.
+  final bool userExists;
 }

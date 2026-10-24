@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'app_state.dart';
-import 'screens/role_screen.dart';
+import 'screens/home_shell.dart';
+import 'screens/register_screen.dart';
 import 'theme.dart';
 
 void main() {
@@ -23,7 +24,19 @@ class PoryadokApp extends StatelessWidget {
       title: 'Порядок',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
-      home: const RoleScreen(),
+      home: const _AuthGate(),
     );
+  }
+}
+
+/// Не вошли в аккаунт: первым открывается регистрация.
+/// Вошли: сразу открывается чат.
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
+
+  @override
+  Widget build(BuildContext context) {
+    final signedIn = context.select<AppState, bool>((s) => s.signedIn);
+    return signedIn ? const HomeShell() : const RegisterScreen();
   }
 }

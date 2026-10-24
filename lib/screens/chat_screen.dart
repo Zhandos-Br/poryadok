@@ -5,6 +5,7 @@ import '../app_state.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'new_task_screen.dart';
 
 /// Один чат: общий или личный. Работает одинаково для всех ролей.
 /// Кнопка «+» пересылает в чат задачу или готовый отчёт.
@@ -38,6 +39,20 @@ class _ChatScreenState extends State<ChatScreen> {
         .read<AppState>()
         .sendText(widget.chatId, text, topicId: widget.topicId);
     _controller.clear();
+  }
+
+  void _assignTask() {
+    final state = context.read<AppState>();
+    final personal = !isGroupChat(widget.chatId);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => NewTaskScreen(
+          assigneeId: personal ? state.otherParticipant(widget.chatId) : null,
+          chatId: widget.chatId,
+          topicId: widget.topicId,
+        ),
+      ),
+    );
   }
 
   Future<void> _attach() async {
@@ -105,7 +120,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final isGroup = widget.chatId == groupChatId;
+    final isGroup = isGroupChat(widget.chatId);
     final topicId = widget.topicId;
     final topic = topicId == null ? null : state.topicById(topicId);
     final messages =
@@ -159,6 +174,19 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
+          if (state.canAssignIn(widget.chatId))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ActionChip(
+                  avatar: const Icon(Icons.add_task, size: 18, color: brandDark),
+                  label: const Text('Поставить задачу'),
+                  backgroundColor: Colors.white,
+                  onPressed: _assignTask,
+                ),
+              ),
+            ),
           SafeArea(
             top: false,
             child: Padding(
