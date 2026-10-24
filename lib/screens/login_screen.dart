@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../app_state.dart';
+import '../settings.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -72,7 +73,7 @@ class _LoginScreenState extends State<LoginScreen> {
               hintText: '+7 701 100 00 03',
               prefixIcon: const Icon(Icons.phone_outlined),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: paletteOf(context).card,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: const BorderSide(color: lineColor),

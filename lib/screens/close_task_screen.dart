@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../app_state.dart';
 import '../models.dart';
+import '../settings.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -166,7 +167,7 @@ class _CloseTaskScreenState extends State<CloseTaskScreen> {
             decoration: InputDecoration(
               hintText: 'Например: убрали две позиции, остальное в норме',
               filled: true,
-              fillColor: Colors.white,
+              fillColor: paletteOf(context).card,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: const BorderSide(color: Color(0xFFC5CFD8)),

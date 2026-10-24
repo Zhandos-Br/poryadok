@@ -5,6 +5,7 @@ import '../app_state.dart';
 import '../models.dart';
 import '../ru.dart';
 import '../schedule.dart';
+import '../settings.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -129,7 +130,7 @@ class _ScheduleViewState extends State<ScheduleView> {
     final past = !day.isAfter(today);
 
     String line;
-    Color bg = Colors.white;
+    Color bg = paletteOf(context).card;
     Color fg = muted;
     Color? dot;
 
@@ -181,10 +182,10 @@ class _ScheduleViewState extends State<ScheduleView> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: selected
-                      ? ink
+                      ? paletteOf(context).ink
                       : isToday
                           ? brand
-                          : lineColor,
+                          : paletteOf(context).line,
                   width: selected || isToday ? 1.6 : 1,
                 ),
               ),
@@ -198,6 +199,9 @@ class _ScheduleViewState extends State<ScheduleView> {
                           '$d',
                           style: TextStyle(
                             fontSize: 14,
+                            color: bg == paletteOf(context).card
+                                ? paletteOf(context).ink
+                                : const Color(0xFF1B2733),
                             fontWeight:
                                 selected || isToday ? FontWeight.w600 : FontWeight.w500,
                           ),
@@ -274,7 +278,7 @@ class _Legend extends StatelessWidget {
             ('Задачи в срок 85%+', Color(0xFFE3F5EC)),
             ('65–84%', Color(0xFFFFF1D6)),
             ('Ниже 65%', Color(0xFFFDE8E6)),
-            ('Впереди: сколько человек на смене', Colors.white),
+            ('Впереди: сколько человек на смене', Color(0x00000000)),
           ]
         : const [
             ('Смена, часы', _workBg),

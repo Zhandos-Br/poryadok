@@ -9,6 +9,7 @@ import '../widgets.dart';
 import 'chat_screen.dart';
 import 'invite_screen.dart';
 import 'new_chat_screen.dart';
+import 'settings_screen.dart';
 
 /// Группа «Отчёты команды» и личные чаты с каждым участником.
 /// Сотрудники могут писать друг другу, руководителю и собственнику,
@@ -42,24 +43,14 @@ class ChatListScreen extends StatelessWidget {
                 ),
                 icon: const Icon(Icons.edit_outlined),
               ),
-              PopupMenuButton<String>(
-                tooltip: 'Меню',
-                onSelected: (v) {
-                  if (v == 'logout') {
-                    Navigator.of(context).popUntil((r) => r.isFirst);
-                    context.read<AppState>().signOut();
-                  }
-                },
-                itemBuilder: (_) => [
-                  PopupMenuItem<String>(
-                    enabled: false,
-                    child: Text('${state.me.name} · ${state.me.role.label}'),
+              IconButton(
+                tooltip: 'Настройки',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SettingsScreen(),
                   ),
-                  const PopupMenuItem<String>(
-                    value: 'logout',
-                    child: Text('Выйти из аккаунта'),
-                  ),
-                ],
+                ),
+                icon: const Icon(Icons.settings_outlined),
               ),
             ],
           ),
@@ -141,6 +132,27 @@ class _InviteCard extends StatelessWidget {
 
   final CompanyInvite invite;
 
+  /// Вступить в компанию можно только с паспортными данными:
+  /// если их нет, сначала просим ввести.
+  Future<void> _accept(BuildContext context, CompanyInvite invite) async {
+    final state = context.read<AppState>();
+    var passport = '';
+    if (state.needsPassport) {
+      final entered = await showDialog<String>(
+        context: context,
+        builder: (_) => const _PassportDialog(),
+      );
+      if (entered == null) return;
+      passport = entered;
+    }
+    final error = state.acceptInvite(invite.id, passport: passport);
+    if (error != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.read<AppState>();
@@ -171,8 +183,10 @@ class _InviteCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
+            'БИН ${company?.bin ?? ''}. '
             '${from.name} приглашает вас как: ${invite.role.label.toLowerCase()}. '
-            'После согласия вы сразу окажетесь в команде.',
+            'После согласия вы сразу окажетесь в команде'
+            '${state.needsPassport ? ', нужно будет указать паспортные данные' : ''}.',
             style: const TextStyle(fontSize: 13, color: brandDark, height: 1.4),
           ),
           const SizedBox(height: 10),
@@ -180,7 +194,7 @@ class _InviteCard extends StatelessWidget {
             children: [
               Expanded(
                 child: FilledButton(
-                  onPressed: () => state.acceptInvite(invite.id),
+                  onPressed: () => _accept(context, invite),
                   style: FilledButton.styleFrom(backgroundColor: brand),
                   child: const Text('Принять'),
                 ),
@@ -276,6 +290,71 @@ class _ChatTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PassportDialog extends StatefulWidget {
+  const _PassportDialog();
+
+  @override
+  State<_PassportDialog> createState() => _PassportDialogState();
+}
+
+class _PassportDialogState extends State<_PassportDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  bool get _valid => _controller.text.trim().length >= 6;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Паспортные данные'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Чтобы стать сотрудником компании, укажите паспортные данные. '
+            'Их увидят только руководитель и собственник этой компании.',
+            style: TextStyle(fontSize: 13.5, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(
+              labelText: 'Серия и номер',
+              hintText: 'N12345678',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Отмена'),
+        ),
+        FilledButton(
+          onPressed: _valid
+              ? () => Navigator.pop(context, _controller.text.trim())
+              : null,
+          child: const Text('Принять приглашение'),
+        ),
+      ],
     );
   }
 }

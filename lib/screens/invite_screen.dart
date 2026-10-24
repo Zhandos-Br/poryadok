@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../app_state.dart';
 import '../models.dart';
 import '../ru.dart';
+import '../settings.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -216,7 +217,7 @@ class _InviteScreenState extends State<InviteScreen> {
       hintText: hint,
       prefixIcon: icon == null ? null : Icon(icon),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: paletteOf(context).card,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: lineColor),

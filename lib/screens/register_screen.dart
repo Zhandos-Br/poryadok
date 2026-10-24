@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../app_state.dart';
 import '../models.dart';
+import '../settings.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'login_screen.dart';
@@ -33,6 +34,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passport = TextEditingController();
   final _invite = TextEditingController();
   final _company = TextEditingController();
+  final _bin = TextEditingController();
   Uint8List? _photo;
   String? _error;
   bool _business = false;
@@ -41,7 +43,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
-    for (final c in [_name, _nick, _phone, _company]) {
+    for (final c in [_name, _nick, _phone, _company, _bin, _passport, _invite]) {
       c.addListener(() => setState(() => _error = null));
     }
   }
@@ -54,6 +56,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passport.dispose();
     _invite.dispose();
     _company.dispose();
+    _bin.dispose();
     super.dispose();
   }
 
@@ -61,7 +64,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _name.text.trim().split(RegExp(r'\s+')).length >= 2 &&
       _nick.text.trim().replaceFirst('@', '').length >= 3 &&
       _phone.text.replaceAll(RegExp(r'\D'), '').length >= 10 &&
-      (!_business || _company.text.trim().isNotEmpty);
+      (!_business ||
+          (_company.text.trim().isNotEmpty && _bin.text.length == 12)) &&
+      (!_needPassport || _passport.text.trim().length >= 6);
+
+  /// Паспорт обязателен тем, кто вступает в компанию по коду.
+  bool get _needPassport => !_business && _invite.text.trim().isNotEmpty;
 
   Future<void> _pickPhoto() async {
     final file = await ImagePicker().pickImage(
@@ -85,6 +93,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           photo: _photo,
           isBusiness: _business,
           companyName: _company.text,
+          bin: _bin.text,
           businessRole: _businessRole,
         );
     if (error != null) setState(() => _error = error);
@@ -97,7 +106,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       hintText: hint,
       prefixIcon: icon == null ? null : Icon(icon),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: paletteOf(context).card,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: lineColor),
@@ -211,7 +220,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
             TextField(
               controller: _passport,
               decoration: _decoration(
-                'Паспортные данные (необязательно)',
+                _needPassport
+                    ? 'Паспортные данные (обязательно)'
+                    : 'Паспортные данные (необязательно)',
                 hint: 'Серия и номер',
                 icon: Icons.credit_card_outlined,
               ),
@@ -220,8 +231,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 4),
               child: Text(
-                'Паспорт нужен, только если его требует работодатель. '
-                'В рабочей версии он хранится зашифрованным.',
+                'Для обычного аккаунта паспорт не нужен. Чтобы стать сотрудником '
+                'компании, его нужно указать: он закрепляется за компанией '
+                'вместе с номером телефона. В рабочей версии он хранится '
+                'зашифрованным.',
                 style: TextStyle(fontSize: 12, color: muted, height: 1.4),
               ),
             ),
@@ -255,6 +268,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   'Название компании',
                   hint: 'Например: Магазин «Рассвет»',
                   icon: Icons.storefront_outlined,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _bin,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(12),
+                ],
+                decoration: _decoration(
+                  'БИН компании',
+                  hint: '12 цифр',
+                  icon: Icons.numbers,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  'Укажите БИН компании, которой вы владеете или которой '
+                  'управляете. Сотрудники будут привязаны к ней по этому БИН.',
+                  style: TextStyle(fontSize: 12, color: muted, height: 1.4),
                 ),
               ),
               const SizedBox(height: 12),

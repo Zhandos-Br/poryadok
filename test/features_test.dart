@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:poryadok/app_state.dart';
 import 'package:poryadok/models.dart';
+import 'package:poryadok/settings.dart';
 
 void main() {
   group('темы в чатах', () {
@@ -76,6 +78,7 @@ void main() {
         phone: '+7 701 333 22 11',
         isBusiness: true,
         companyName: 'Кофейня «Утро»',
+        bin: '987654321098',
         businessRole: Role.owner,
       );
 
@@ -84,21 +87,28 @@ void main() {
       expect(state.me.role, Role.owner);
       expect(state.canManage, isTrue);
       expect(state.myCompany?.name, 'Кофейня «Утро»');
+      expect(state.myCompany?.bin, '987654321098');
       expect(state.myGroupChatId, isNotNull);
       expect(state.employees, isEmpty);
     });
 
-    test('без названия компании регистрация бизнеса отклоняется', () {
+    test('без названия и БИН регистрация бизнеса отклоняется', () {
       final state = AppState();
-      expect(
-        state.register(
-          fullName: 'Сидоров Пётр',
-          nickname: 'petr_s',
-          phone: '+7 701 333 22 11',
-          isBusiness: true,
-        ),
-        isNotNull,
-      );
+      Object? try_({String name = '', String bin = ''}) => state.register(
+            fullName: 'Сидоров Пётр',
+            nickname: 'petr_s',
+            phone: '+7 701 333 22 11',
+            isBusiness: true,
+            companyName: name,
+            bin: bin,
+          );
+
+      expect(try_(), isNotNull);
+      expect(try_(name: 'Кофейня'), isNotNull); // нет БИН
+      expect(try_(name: 'Кофейня', bin: '12345'), isNotNull); // короткий БИН
+      // БИН уже принадлежит «Рассвету»: нужно приглашение, а не новая компания.
+      expect(try_(name: 'Копия', bin: '123456789012'), isNotNull);
+      expect(try_(name: 'Кофейня', bin: '123 456 789 000'), isNull);
     });
 
     test('код приглашения вводится с номером, на который он выдан', () {
@@ -116,16 +126,29 @@ void main() {
         isNotNull,
       );
 
+      // Без паспорта в компанию не вступить.
+      expect(
+        state.register(
+          fullName: 'Петрова Анна',
+          nickname: 'anna_p',
+          phone: '+7 700 555 11 22',
+          invite: 'rassvet',
+        ),
+        isNotNull,
+      );
+
       final error = state.register(
         fullName: 'Петрова Анна',
         nickname: 'anna_p',
         phone: '+7 700 555 11 22',
+        passport: 'N12345670',
         invite: 'rassvet',
       );
 
       expect(error, isNull);
       expect(state.me.companyId, 'c1');
       expect(state.me.role, Role.employee);
+      expect(state.me.passport, 'N12345670');
       expect(state.users.where((u) => u.companyId == 'c1').length,
           teamBefore + 1);
       expect(state.employees.any((u) => u.id == state.me.id), isTrue);
@@ -175,8 +198,15 @@ void main() {
       expect(state.pendingInvitesForMe.length, 1);
       expect(state.me.companyId, isNull);
 
-      state.acceptInvite(state.pendingInvitesForMe.first.id);
+      final id = state.pendingInvitesForMe.first.id;
+      expect(state.needsPassport, isTrue);
+      // Без паспорта вступить нельзя.
+      expect(state.acceptInvite(id), isNotNull);
+      expect(state.me.companyId, isNull);
 
+      expect(state.acceptInvite(id, passport: 'N77777777'), isNull);
+
+      expect(state.me.passport, 'N77777777');
       expect(state.me.companyId, 'c1');
       expect(state.me.role, Role.employee);
       expect(state.pendingInvitesForMe, isEmpty);
@@ -218,6 +248,7 @@ void main() {
         phone: '+7 701 777 66 55',
         isBusiness: true,
         companyName: 'Новая Компания',
+        bin: '111222333444',
         businessRole: Role.manager,
       );
       final owner = state.createInvite(
@@ -230,12 +261,35 @@ void main() {
           fullName: 'Собственник Новый',
           nickname: 'own_new',
           phone: '+7 701 888 99 00',
+          passport: 'N55555555',
           invite: owner.invite!.code,
         ),
         isNull,
       );
       expect(state.me.role, Role.owner);
       expect(state.myCompany?.name, 'Новая Компания');
+    });
+  });
+
+  group('привязка к компании', () {
+    test('у сотрудников паспорт и БИН компании на месте', () {
+      final state = AppState()..signInAsUser('m1');
+      final company = state.companyById(state.userById('e1').companyId!)!;
+      expect(company.bin.length, 12);
+      expect(state.userById('e1').passport, isNotNull);
+      expect(maskPassport('N00000003'), 'N••••••03');
+    });
+  });
+
+  group('настройки', () {
+    test('тема, размер текста и обои меняются', () {
+      final state = AppState();
+      state.setThemeMode(ThemeMode.dark);
+      state.setTextSize(TextSize.large);
+      state.setWallpaper(3);
+      expect(state.themeMode, ThemeMode.dark);
+      expect(state.textSize.scale, 1.15);
+      expect(state.wallpaperIndex, 3);
     });
   });
 

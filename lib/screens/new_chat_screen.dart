@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../app_state.dart';
 import '../models.dart';
+import '../settings.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'chat_screen.dart';
@@ -82,7 +83,7 @@ class _NewChatScreenState extends State<NewChatScreen> {
               hintText: '+7 777 123 45 67',
               prefixIcon: const Icon(Icons.phone_outlined),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: paletteOf(context).card,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: const BorderSide(color: lineColor),

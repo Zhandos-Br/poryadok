@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../app_state.dart';
 import '../models.dart';
+import '../settings.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'new_task_screen.dart';
@@ -136,7 +137,7 @@ class _ChatScreenState extends State<ChatScreen> {
             : state.userById(state.otherParticipant(widget.chatId)).position;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE9EFEC),
+      backgroundColor: paletteOf(context).surface,
       appBar: AppBar(
         backgroundColor: brandDark,
         foregroundColor: Colors.white,
@@ -160,7 +161,9 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
       ),
-      body: Column(
+      body: WallpaperBox(
+        index: state.wallpaperIndex,
+        child: Column(
         children: [
           if (topic == null) _TopicsStrip(chatId: widget.chatId),
           Expanded(
@@ -182,7 +185,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 child: ActionChip(
                   avatar: const Icon(Icons.add_task, size: 18, color: brandDark),
                   label: const Text('Поставить задачу'),
-                  backgroundColor: Colors.white,
+                  backgroundColor: paletteOf(context).card,
                   onPressed: _assignTask,
                 ),
               ),
@@ -197,7 +200,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     onPressed: _attach,
                     tooltip: 'Прикрепить задачу или отчёт',
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.white,
+                      backgroundColor: paletteOf(context).card,
                       foregroundColor: brandDark,
                     ),
                     icon: const Icon(Icons.add),
@@ -213,7 +216,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             ? 'Сообщение'
                             : 'Сообщение в теме',
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: paletteOf(context).card,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 12,
@@ -237,6 +240,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -255,9 +259,9 @@ class _TopicsStrip extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: lineColor)),
+      decoration: BoxDecoration(
+        color: paletteOf(context).card,
+        border: Border(bottom: BorderSide(color: paletteOf(context).line)),
       ),
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: SingleChildScrollView(
@@ -432,7 +436,9 @@ class _Bubble extends StatelessWidget {
           margin: const EdgeInsets.symmetric(vertical: 3),
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: mine ? const Color(0xFFD5F0E4) : Colors.white,
+            color: mine
+                ? paletteOf(context).bubbleMine
+                : paletteOf(context).bubbleOther,
             borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
@@ -517,9 +523,9 @@ class _SharedCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: paletteOf(context).card,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: lineColor),
+        border: Border.all(color: paletteOf(context).line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

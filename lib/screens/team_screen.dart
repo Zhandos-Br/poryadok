@@ -83,6 +83,11 @@ class _TeamScreenState extends State<TeamScreen> {
                 ),
               ],
             ),
+            if (state.myCompany != null)
+              Text(
+                '${state.myCompany!.name} · БИН ${state.myCompany!.bin}',
+                style: const TextStyle(fontSize: 12.5, color: muted),
+              ),
             const SizedBox(height: 14),
             Panel(
               child: Column(

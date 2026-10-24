@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import 'settings.dart';
+
 const brand = Color(0xFF0E6F66);
 const brandDark = Color(0xFF0A5A52);
 const brandSoft = Color(0xFFDDF1EE);
 const surface = Color(0xFFF5F7F9);
 const ink = Color(0xFF1B2733);
-const muted = Color(0xFF5E6E7D);
+const muted = Color(0xFF66778A);
 const lineColor = Color(0xFFE8ECF0);
 const okColor = Color(0xFF0B6B3F);
 const warnColor = Color(0xFF8A4B00);
@@ -50,28 +52,33 @@ String verdictForScore(num score) {
   return 'Нужно внимание';
 }
 
-ThemeData buildTheme() {
+ThemeData buildTheme({bool dark = false}) {
+  final p = dark ? darkPalette : lightPalette;
   final base = ThemeData(
     useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(seedColor: brand),
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: brand,
+      brightness: dark ? Brightness.dark : Brightness.light,
+    ),
   );
   return base.copyWith(
-    scaffoldBackgroundColor: surface,
-    textTheme: base.textTheme.apply(bodyColor: ink, displayColor: ink),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: surface,
+    scaffoldBackgroundColor: p.surface,
+    textTheme: base.textTheme.apply(bodyColor: p.ink, displayColor: p.ink),
+    appBarTheme: AppBarTheme(
+      backgroundColor: p.surface,
+      foregroundColor: p.ink,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       titleTextStyle: TextStyle(
         fontSize: 17,
         fontWeight: FontWeight.w600,
-        color: ink,
+        color: p.ink,
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: Colors.white,
+      backgroundColor: p.card,
       surfaceTintColor: Colors.transparent,
-      indicatorColor: brandSoft,
+      indicatorColor: dark ? const Color(0xFF1F4A45) : brandSoft,
       height: 66,
       labelTextStyle: WidgetStateProperty.all(
         const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),

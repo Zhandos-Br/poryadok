@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'models.dart';
+import 'settings.dart';
 import 'theme.dart';
 
 /// Белая карточка с мягкой тенью и тонкой рамкой.
@@ -35,7 +36,7 @@ class Panel extends StatelessWidget {
         ],
       ),
       child: Material(
-        color: color ?? Colors.white,
+        color: color ?? paletteOf(context).card,
         borderRadius: radius,
         child: InkWell(
           borderRadius: radius,
@@ -44,7 +45,7 @@ class Panel extends StatelessWidget {
             padding: padding,
             decoration: BoxDecoration(
               borderRadius: radius,
-              border: Border.all(color: borderColor ?? lineColor),
+              border: Border.all(color: borderColor ?? paletteOf(context).line),
             ),
             child: child,
           ),
@@ -64,10 +65,10 @@ class ScreenTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 22,
         fontWeight: FontWeight.w600,
-        color: ink,
+        color: paletteOf(context).ink,
         letterSpacing: -0.2,
       ),
     );

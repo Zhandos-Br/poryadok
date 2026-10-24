@@ -5,6 +5,7 @@ import '../app_state.dart';
 import '../models.dart';
 import '../ru.dart';
 import '../schedule.dart';
+import '../settings.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'rating_screen.dart';
@@ -98,10 +99,8 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(user.name),
-        backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
       ),
-      backgroundColor: surface,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -142,6 +141,8 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 10),
+            _BindingPanel(user: user),
             const SizedBox(height: 18),
             const SectionLabel('Период'),
             const SizedBox(height: 8),
@@ -265,7 +266,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 16, color: on ? Colors.white : ink),
+              Icon(icon, size: 16, color: on ? Colors.white : paletteOf(context).ink),
               const SizedBox(width: 6),
             ],
             Text(text),
@@ -274,10 +275,10 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
         selected: on,
         onSelected: (_) => onTap(),
         showCheckmark: false,
-        selectedColor: ink,
-        backgroundColor: Colors.white,
+        selectedColor: brand,
+        backgroundColor: paletteOf(context).card,
         labelStyle: TextStyle(
-          color: on ? Colors.white : ink,
+          color: on ? Colors.white : paletteOf(context).ink,
           fontWeight: FontWeight.w500,
         ),
         materialTapTargetSize: MaterialTapTargetSize.padded,
@@ -426,6 +427,101 @@ class _ReportSheet extends StatelessWidget {
               style: const TextStyle(fontSize: 14, color: muted),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// К какой компании привязан сотрудник: компания, БИН, телефон, паспорт.
+/// Паспорт скрыт, пока руководитель или собственник не нажмёт «показать».
+class _BindingPanel extends StatefulWidget {
+  const _BindingPanel({required this.user});
+
+  final AppUser user;
+
+  @override
+  State<_BindingPanel> createState() => _BindingPanelState();
+}
+
+class _BindingPanelState extends State<_BindingPanel> {
+  bool _show = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final user = widget.user;
+    final company =
+        user.companyId == null ? null : state.companyById(user.companyId!);
+    final passport = user.passport;
+
+    Widget row(String label, String value, {Widget? trailing}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 104,
+                child: Text(
+                  label,
+                  style: const TextStyle(fontSize: 13, color: muted),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              if (trailing != null) trailing,
+            ],
+          ),
+        );
+
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.verified_user_outlined, size: 18, color: brand),
+              const SizedBox(width: 8),
+              Text(
+                'Привязка к компании',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: paletteOf(context).ink,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          row('Компания', company?.name ?? '—'),
+          row('БИН', company?.bin ?? '—'),
+          row('Телефон', user.phone),
+          row(
+            'Паспорт',
+            passport == null
+                ? 'Не указан'
+                : (_show ? passport : maskPassport(passport)),
+            trailing: passport == null
+                ? null
+                : IconButton(
+                    tooltip: _show ? 'Скрыть' : 'Показать',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => setState(() => _show = !_show),
+                    icon: Icon(
+                      _show
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 20,
+                      color: muted,
+                    ),
+                  ),
+          ),
         ],
       ),
     );

@@ -20,10 +20,20 @@ class PoryadokApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mode = context.select<AppState, ThemeMode>((s) => s.themeMode);
+    final scale = context.select<AppState, double>((s) => s.textSize.scale);
     return MaterialApp(
       title: 'Порядок',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
+      darkTheme: buildTheme(dark: true),
+      themeMode: mode,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(scale),
+        ),
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: const _AuthGate(),
     );
   }

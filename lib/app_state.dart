@@ -2,11 +2,12 @@ import 'dart:math' show Random;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' show DateUtils, TimeOfDay;
+import 'package:flutter/material.dart' show DateUtils, ThemeMode, TimeOfDay;
 
 import 'models.dart';
 import 'rating.dart';
 import 'schedule.dart';
+import 'settings.dart' show TextSize;
 
 /// Общий чат демо-компании «Рассвет». У других компаний свой: 'g:<id>'.
 const groupChatId = 'group';
@@ -31,6 +32,7 @@ class AppState extends ChangeNotifier {
     AppUser(
       id: 'o1',
       companyId: 'c1',
+      passport: 'N00000001',
       name: 'Собственник',
       position: 'Собственник бизнеса',
       role: Role.owner,
@@ -40,6 +42,7 @@ class AppState extends ChangeNotifier {
     AppUser(
       id: 'm1',
       companyId: 'c1',
+      passport: 'N00000002',
       name: 'Руководитель',
       position: 'Руководитель',
       role: Role.manager,
@@ -49,6 +52,7 @@ class AppState extends ChangeNotifier {
     AppUser(
       id: 'e1',
       companyId: 'c1',
+      passport: 'N00000003',
       name: 'Айгерим',
       position: 'Продавец-кассир',
       role: Role.employee,
@@ -58,6 +62,7 @@ class AppState extends ChangeNotifier {
     AppUser(
       id: 'e2',
       companyId: 'c1',
+      passport: 'N00000004',
       name: 'Данияр',
       position: 'Кладовщик',
       role: Role.employee,
@@ -67,6 +72,7 @@ class AppState extends ChangeNotifier {
     AppUser(
       id: 'e3',
       companyId: 'c1',
+      passport: 'N00000005',
       name: 'Марат',
       position: 'Курьер',
       role: Role.employee,
@@ -76,6 +82,7 @@ class AppState extends ChangeNotifier {
     AppUser(
       id: 'e4',
       companyId: 'c1',
+      passport: 'N00000006',
       name: 'Светлана',
       position: 'Продавец',
       role: Role.employee,
@@ -93,7 +100,7 @@ class AppState extends ChangeNotifier {
   ];
 
   final List<Company> companies = const [
-    Company(id: 'c1', name: 'Магазин «Рассвет»'),
+    Company(id: 'c1', name: 'Магазин «Рассвет»', bin: '123456789012'),
   ].toList();
   final List<CompanyInvite> invites = [];
   final List<TaskItem> tasks = [];
@@ -125,6 +132,27 @@ class AppState extends ChangeNotifier {
 
   void signOut() {
     _me = null;
+    notifyListeners();
+  }
+
+  // ---------- Внешний вид ----------
+
+  ThemeMode themeMode = ThemeMode.light;
+  TextSize textSize = TextSize.normal;
+  int wallpaperIndex = 0;
+
+  void setThemeMode(ThemeMode mode) {
+    themeMode = mode;
+    notifyListeners();
+  }
+
+  void setTextSize(TextSize size) {
+    textSize = size;
+    notifyListeners();
+  }
+
+  void setWallpaper(int index) {
+    wallpaperIndex = index;
     notifyListeners();
   }
 
@@ -255,18 +283,32 @@ class AppState extends ChangeNotifier {
     );
   }
 
+  static bool _validPassport(String? p) => (p ?? '').trim().length >= 6;
+
+  /// Паспортные данные не заполнены: их надо ввести до вступления в компанию.
+  bool get needsPassport => !_validPassport(me.passport);
+
   /// Человек принимает приглашение и сразу попадает в команду.
-  void acceptInvite(String inviteId) {
+  /// Для вступления в компанию паспортные данные обязательны:
+  /// если их ещё нет, их нужно передать в [passport].
+  /// Возвращает текст ошибки или null.
+  String? acceptInvite(String inviteId, {String passport = ''}) {
     final invite = invites.firstWhere((i) => i.id == inviteId);
+    final given = _validPassport(passport) ? passport.trim() : null;
+    if (needsPassport && given == null) {
+      return 'Для вступления в компанию укажите паспортные данные';
+    }
     invite.status = InviteStatus.accepted;
     final joined = me.copyWith(
       companyId: invite.companyId,
       role: invite.role,
       position: _positionFor(invite.role, invite.position),
+      passport: given,
     );
     _replaceUser(joined);
     _announceJoin(joined, invite.companyId);
     notifyListeners();
+    return null;
   }
 
   void declineInvite(String inviteId) {
@@ -580,6 +622,7 @@ class AppState extends ChangeNotifier {
     Uint8List? photo,
     bool isBusiness = false,
     String companyName = '',
+    String bin = '',
     Role businessRole = Role.owner,
   }) {
     if (findUserByPhone(phone) != null) {
@@ -589,8 +632,16 @@ class AppState extends ChangeNotifier {
     if (users.any((u) => u.nickname.toLowerCase() == nick.toLowerCase())) {
       return 'Такой никнейм уже занят';
     }
-    if (isBusiness && companyName.trim().isEmpty) {
-      return 'Укажите название компании';
+    if (isBusiness) {
+      if (companyName.trim().isEmpty) return 'Укажите название компании';
+      if (_digits(bin).length != 12) return 'БИН состоит из 12 цифр';
+      if (companies.any((c) => c.bin == _digits(bin))) {
+        return 'Компания с таким БИН уже зарегистрирована. '
+            'Попросите её руководителя или собственника пригласить вас.';
+      }
+    }
+    if (!isBusiness && invite.trim().isNotEmpty && !_validPassport(passport)) {
+      return 'Для вступления в компанию нужны паспортные данные';
     }
 
     CompanyInvite? byCode;
@@ -613,7 +664,9 @@ class AppState extends ChangeNotifier {
     var position = 'Личный аккаунт';
     if (isBusiness) {
       companyId = _nextId('c');
-      companies.add(Company(id: companyId, name: companyName.trim()));
+      companies.add(
+        Company(id: companyId, name: companyName.trim(), bin: _digits(bin)),
+      );
       role = businessRole;
       position = _positionFor(role, '');
     } else if (byCode != null) {

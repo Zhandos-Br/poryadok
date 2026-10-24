@@ -68,7 +68,12 @@ class AppUser {
   /// Человек без компании.
   bool get external => companyId == null;
 
-  AppUser copyWith({String? companyId, Role? role, String? position}) {
+  AppUser copyWith({
+    String? companyId,
+    Role? role,
+    String? position,
+    String? passport,
+  }) {
     return AppUser(
       id: id,
       name: name,
@@ -76,7 +81,7 @@ class AppUser {
       role: role ?? this.role,
       nickname: nickname,
       phone: phone,
-      passport: passport,
+      passport: passport ?? this.passport,
       photo: photo,
       companyId: companyId ?? this.companyId,
     );
@@ -84,10 +89,13 @@ class AppUser {
 }
 
 class Company {
-  const Company({required this.id, required this.name});
+  const Company({required this.id, required this.name, required this.bin});
 
   final String id;
   final String name;
+
+  /// БИН: 12 цифр. По нему сотрудники привязаны к компании.
+  final String bin;
 }
 
 enum InviteStatus { pending, accepted, declined }
@@ -240,3 +248,11 @@ class ChatTopic {
 
 String hhmm(DateTime d) =>
     '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
+/// «N12345678» → «N••••••78»: паспорт показывается скрытым, пока
+/// человек сам не нажмёт «показать».
+String maskPassport(String p) {
+  final s = p.trim();
+  if (s.length <= 3) return s;
+  return s[0] + '•' * (s.length - 3) + s.substring(s.length - 2);
+}
