@@ -516,10 +516,10 @@ class _SharedCard extends StatelessWidget {
       status = 'Просрочена · до ${hhmm(task.due)}';
       statusColor = badColor;
     } else if (!task.accepted) {
-      status = 'Не принята · до ${hhmm(task.due)}';
+      status = 'Ожидает принятия · не в работе · до ${hhmm(task.due)}';
       statusColor = badColor;
     } else {
-      status = 'Принята в ${hhmm(task.acceptedAt!)} · до ${hhmm(task.due)}';
+      status = 'В работе с ${hhmm(task.acceptedAt!)} · до ${hhmm(task.due)}';
       statusColor = warnColor;
     }
 

@@ -116,7 +116,7 @@ class _CloseTaskScreenState extends State<CloseTaskScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Задача ещё не принята',
+                    'Задача ожидает принятия и пока не в работе',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -147,7 +147,7 @@ class _CloseTaskScreenState extends State<CloseTaskScreen> {
           ] else ...[
             Tag(
               icon: Icons.check_circle_outline,
-              text: 'Принята в работу в ${hhmm(task.acceptedAt!)}',
+              text: 'В работе с ${hhmm(task.acceptedAt!)}',
               bg: toneGood.bg,
               fg: toneGood.fg,
             ),

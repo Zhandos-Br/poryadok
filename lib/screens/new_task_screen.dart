@@ -60,7 +60,14 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
       _kinds.isNotEmpty;
 
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(context: context, initialTime: _time);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _time,
+      builder: (ctx, child) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
+    );
     if (picked != null) setState(() => _time = picked);
   }
 
@@ -218,7 +225,8 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
             leading: const Icon(Icons.schedule),
             title: const Text('Выполнить до'),
             trailing: Text(
-              _time.format(context),
+              '${_time.hour.toString().padLeft(2, '0')}:'
+              '${_time.minute.toString().padLeft(2, '0')}',
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
             ),
             onTap: _pickTime,

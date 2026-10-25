@@ -323,7 +323,7 @@ class _TaskTile extends StatelessWidget {
       fg = toneBad.fg;
       icon = Icons.error_outline;
     } else if (!task.accepted) {
-      statusText = 'Ждёт принятия';
+      statusText = 'Ожидает принятия';
       bg = toneMid.bg;
       fg = toneMid.fg;
       icon = Icons.mark_email_unread_outlined;
