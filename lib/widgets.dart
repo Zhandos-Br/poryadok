@@ -23,14 +23,14 @@ class Panel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(16);
+    final radius = BorderRadius.circular(20);
     return Container(
       decoration: BoxDecoration(
         borderRadius: radius,
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0D0F1B26),
-            blurRadius: 12,
+            color: Color(0x1A2B2616),
+            blurRadius: 10,
             offset: Offset(0, 3),
           ),
         ],
@@ -50,6 +50,82 @@ class Panel extends StatelessWidget {
             child: child,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Шапка с названием компании: спокойная песочная плашка,
+/// заметнее фона, но без блеска.
+class CompanyHeader extends StatelessWidget {
+  const CompanyHeader({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.actions = const [],
+  });
+
+  final String title;
+  final String? subtitle;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = paletteOf(context);
+    final base = p.dark ? const Color(0xFF2A3135) : const Color(0xFFE3DFD0);
+    final top = p.dark ? const Color(0xFF30383C) : const Color(0xFFEAE6D8);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 14, 8, 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [top, base],
+        ),
+        border: Border.all(color: p.line),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1F2B2616),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    color: p.ink,
+                  ),
+                ),
+                if (subtitle != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      subtitle!.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        letterSpacing: 0.6,
+                        color: muted,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          ...actions,
+        ],
       ),
     );
   }

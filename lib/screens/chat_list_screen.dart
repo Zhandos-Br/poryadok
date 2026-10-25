@@ -29,13 +29,12 @@ class ChatListScreen extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: ScreenTitle(
-                  state.myCompany == null ? 'Чаты' : state.myCompany!.name,
-                ),
-              ),
+          CompanyHeader(
+            title: state.myCompany == null ? 'Чаты' : state.myCompany!.name,
+            subtitle: state.myCompany == null
+                ? null
+                : '${state.me.role.label} · ${state.me.name}',
+            actions: [
               IconButton(
                 tooltip: 'Новый чат',
                 onPressed: () => Navigator.of(context).push(
@@ -54,14 +53,6 @@ class ChatListScreen extends StatelessWidget {
               ),
             ],
           ),
-          if (state.myCompany != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                '${state.me.role.label} · ${state.me.name}',
-                style: const TextStyle(fontSize: 13, color: muted),
-              ),
-            ),
           const SizedBox(height: 14),
           for (final invite in invites) ...[
             _InviteCard(invite: invite),
@@ -235,6 +226,13 @@ class _ChatTile extends StatelessWidget {
           : text;
     }
 
+    // Новая задача для меня, которую я ещё не принял.
+    TaskItem? waiting;
+    if (last != null && last.type == MessageType.task && last.taskId != null) {
+      final t = state.taskById(last.taskId!);
+      if (t.assigneeId == state.me.id && !t.done && !t.accepted) waiting = t;
+    }
+
     return Panel(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       onTap: () => Navigator.of(context).push(
@@ -252,15 +250,25 @@ class _ChatTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Expanded(
+                    Flexible(
                       child: Text(
                         state.chatTitle(chatId),
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
+                    if (waiting != null) ...[
+                      const SizedBox(width: 8),
+                      const Tag(
+                        text: 'НОВАЯ ЗАДАЧА',
+                        bg: Color(0xFFF9D4CF),
+                        fg: badColor,
+                      ),
+                    ],
+                    const Spacer(),
                     if (last != null)
                       Text(
                         hhmm(last.sentAt),
@@ -275,7 +283,17 @@ class _ChatTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 13, color: muted),
                 ),
+                if (waiting != null) ...[
+                  const SizedBox(height: 6),
+                  Tag(
+                    icon: Icons.mark_email_unread_outlined,
+                    text: 'Ждёт вашего принятия · до ${hhmm(waiting.due)}',
+                    bg: const Color(0xFFFFE3C9),
+                    fg: warnColor,
+                  ),
+                ],
                 if (topicCount > 0) ...[
+                  if (waiting != null) const SizedBox(height: 0),
                   const SizedBox(height: 6),
                   Tag(
                     icon: Icons.push_pin_outlined,

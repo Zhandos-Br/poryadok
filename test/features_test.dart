@@ -333,6 +333,38 @@ void main() {
     });
   });
 
+  group('переназначение', () {
+    AppState setup() => AppState()..signInAsUser('m1');
+
+    test('невыполненную задачу можно передать другому сотруднику', () {
+      final s = setup();
+      final t = s.addTask(
+        title: 'Инвентаризация',
+        assigneeIds: ['e1'],
+        due: DateTime.now().add(const Duration(hours: 3)),
+        requiredKinds: {ReportKind.photo},
+      ).first;
+      final other = s.employees.firstWhere((e) => e.id != 'e1');
+      expect(s.reassignTask(t.id, other.id), isNull);
+      expect(s.taskById(t.id).assigneeId, other.id);
+      expect(s.taskById(t.id).accepted, isFalse);
+      expect(s.messagesOf(s.directChatId(other.id)).last.taskId, t.id);
+    });
+
+    test('сотрудник переназначать не может', () {
+      final s = setup();
+      final t = s.addTask(
+        title: 'Касса',
+        assigneeIds: ['e1'],
+        due: DateTime.now().add(const Duration(hours: 3)),
+        requiredKinds: {ReportKind.photo},
+      ).first;
+      s.signInAsUser('e1');
+      expect(s.reassignTask(t.id, 'm1'), isNotNull);
+      expect(s.taskById(t.id).assigneeId, 'e1');
+    });
+  });
+
   group('задачи из чата', () {
     test('разовая задача создаётся одна и уходит сообщением в чат', () {
       final state = AppState()..signInAsUser('m1');

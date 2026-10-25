@@ -437,6 +437,51 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Переназначить невыполненную задачу другому сотруднику.
+  /// С [series] переносятся и все следующие невыполненные повторы.
+  /// Новый исполнитель получает карточку в чат и должен принять задачу.
+  /// Возвращает текст ошибки или null.
+  String? reassignTask(String taskId, String newAssigneeId,
+      {bool series = false}) {
+    if (!canManage) return 'Переназначать может руководитель или собственник';
+    final task = taskById(taskId);
+    if (task.done) return 'Задача уже выполнена';
+    if (task.assigneeId == newAssigneeId) return 'Выберите другого сотрудника';
+    final oldId = task.assigneeId;
+    final sid = task.seriesId;
+    final moved = <TaskItem>[
+      for (final t in tasks)
+        if (!t.done &&
+            t.assigneeId == oldId &&
+            (t.id == task.id ||
+                (series &&
+                    sid != null &&
+                    t.seriesId == sid &&
+                    !t.due.isBefore(task.due))))
+          t,
+    ];
+    for (final t in moved) {
+      t.assigneeId = newAssigneeId;
+      t.assignedById = me.id;
+      t.acceptedAt = null;
+    }
+    _addMessage(
+      chatId: directChatId(oldId),
+      senderId: me.id,
+      type: MessageType.text,
+      text: 'Задача «${task.title}» переназначена: '
+          '${userById(newAssigneeId).name}',
+    );
+    _addMessage(
+      chatId: directChatId(newAssigneeId),
+      senderId: me.id,
+      type: MessageType.task,
+      taskId: task.id,
+    );
+    notifyListeners();
+    return null;
+  }
+
   /// Задачи компании, которые сотрудники ещё не приняли в работу.
   /// Из серии повторов показывается ближайшая задача.
   List<TaskItem> get unacceptedTasks {

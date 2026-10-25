@@ -340,13 +340,20 @@ class _TaskTile extends StatelessWidget {
     final report = task.report;
 
     return Panel(
-      onTap: report == null
-          ? null
-          : () => showModalBottomSheet<void>(
+      onTap: report != null
+          ? () => showModalBottomSheet<void>(
                 context: context,
                 showDragHandle: true,
                 builder: (_) => _ReportSheet(task: task),
-              ),
+              )
+          : context.read<AppState>().canManage
+              ? () => showModalBottomSheet<void>(
+                    context: context,
+                    showDragHandle: true,
+                    isScrollControlled: true,
+                    builder: (_) => _ReassignSheet(task: task),
+                  )
+              : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -385,12 +392,83 @@ class _TaskTile extends StatelessWidget {
               ],
             ),
           ),
-          if (report != null)
+          if (report != null ||
+              context.read<AppState>().canManage)
             const Padding(
               padding: EdgeInsets.only(top: 2),
               child: Icon(Icons.chevron_right, color: muted),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _ReassignSheet extends StatefulWidget {
+  const _ReassignSheet({required this.task});
+
+  final TaskItem task;
+
+  @override
+  State<_ReassignSheet> createState() => _ReassignSheetState();
+}
+
+class _ReassignSheetState extends State<_ReassignSheet> {
+  bool _series = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final task = widget.task;
+    final others =
+        state.employees.where((e) => e.id != task.assigneeId).toList();
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              task.title,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Исполнитель: ${state.userById(task.assigneeId).name} · '
+              'до ${hhmm(task.due)} · '
+              '${task.accepted ? 'в работе' : 'ожидает принятия'}',
+              style: const TextStyle(fontSize: 13, color: muted),
+            ),
+            const SizedBox(height: 12),
+            if (task.seriesId != null && task.repeat != Repeat.once)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('И все следующие повторы'),
+                value: _series,
+                onChanged: (v) => setState(() => _series = v),
+              ),
+            const SectionLabel('Переназначить на'),
+            const SizedBox(height: 6),
+            if (others.isEmpty)
+              const Text('Других сотрудников в компании нет'),
+            for (final e in others)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.person_outline),
+                title: Text(e.name),
+                subtitle: e.position.isEmpty ? null : Text(e.position),
+                onTap: () {
+                  final err = state.reassignTask(task.id, e.id,
+                      series: _series);
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(err ?? 'Переназначено: ${e.name}'),
+                  ));
+                },
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -176,7 +176,7 @@ class TaskItem {
 
   final String id;
   final String title;
-  final String assigneeId;
+  String assigneeId;
   final DateTime due;
 
   /// Что обязательно сдать в отчёте.
@@ -189,7 +189,7 @@ class TaskItem {
   bool get repeatDaily => repeat != Repeat.once;
 
   /// Кто поставил задачу.
-  final String? assignedById;
+  String? assignedById;
 
   /// Общий номер повторяющихся задач одной серии.
   final String? seriesId;

@@ -31,22 +31,22 @@ class Palette {
 
 const lightPalette = Palette(
   dark: false,
-  surface: Color(0xFFF5F7F9),
-  card: Colors.white,
-  line: Color(0xFFE8ECF0),
-  ink: Color(0xFF1B2733),
-  bubbleMine: Color(0xFFD5F0E4),
-  bubbleOther: Colors.white,
+  surface: Color(0xFFEFEDE5),
+  card: Color(0xFFF8F7F2),
+  line: Color(0xFFE2DFD3),
+  ink: Color(0xFF1F2A27),
+  bubbleMine: Color(0xFFD3E8DE),
+  bubbleOther: Color(0xFFF8F7F2),
 );
 
 const darkPalette = Palette(
   dark: true,
-  surface: Color(0xFF0F171D),
-  card: Color(0xFF1A252D),
-  line: Color(0xFF2B3843),
-  ink: Color(0xFFE6EDF2),
-  bubbleMine: Color(0xFF0B5D4B),
-  bubbleOther: Color(0xFF202C33),
+  surface: Color(0xFF14181A),
+  card: Color(0xFF1F2528),
+  line: Color(0xFF30383B),
+  ink: Color(0xFFE8ECE9),
+  bubbleMine: Color(0xFF0F5A4B),
+  bubbleOther: Color(0xFF262E31),
 );
 
 Palette paletteOf(BuildContext context) =>
