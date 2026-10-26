@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../app_state.dart';
@@ -6,6 +7,7 @@ import '../models.dart';
 import '../schedule.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'digest_screen.dart';
 import 'invite_screen.dart';
 import 'new_task_screen.dart';
 import 'employee_tasks_screen.dart';
@@ -85,9 +87,35 @@ class _TeamScreenState extends State<TeamScreen> {
             ),
             if (state.myCompany != null)
               Text(
-                '${state.myCompany!.name} · БИН ${state.myCompany!.bin}',
+                state.myCompany!.bin.isEmpty
+                    ? state.myCompany!.name
+                    : '${state.myCompany!.name} · БИН ${state.myCompany!.bin}',
                 style: const TextStyle(fontSize: 12.5, color: muted),
               ),
+            if (state.shouldAskBin) ...[
+              const SizedBox(height: 10),
+              Panel(
+                onTap: () => showDialog<void>(
+                  context: context,
+                  builder: (_) => const _BinDialog(),
+                ),
+                color: toneMid.bg,
+                borderColor: Colors.transparent,
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: toneMid.fg),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Укажите БИН компании. Это нужно один раз.',
+                        style: TextStyle(fontSize: 13.5, color: toneMid.fg),
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, color: toneMid.fg),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             Panel(
               child: Column(
@@ -120,6 +148,43 @@ class _TeamScreenState extends State<TeamScreen> {
                   ),
                   const SizedBox(height: 12),
                   ScoreBar(value: average, height: 7),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Panel(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const DigestScreen()),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.fact_check_outlined, color: brand),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Итоги дня',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          'Просрочено: ${state.digest.overdue.length} · '
+                          'не приняли: ${state.digest.notAccepted.length}',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: state.digest.overdue.isEmpty
+                                ? muted
+                                : badColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: muted),
                 ],
               ),
             ),
@@ -203,6 +268,61 @@ class _TeamScreenState extends State<TeamScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BinDialog extends StatefulWidget {
+  const _BinDialog();
+
+  @override
+  State<_BinDialog> createState() => _BinDialogState();
+}
+
+class _BinDialogState extends State<_BinDialog> {
+  final _controller = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('БИН компании'),
+      content: TextField(
+        controller: _controller,
+        keyboardType: TextInputType.number,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          LengthLimitingTextInputFormatter(12),
+        ],
+        decoration: InputDecoration(
+          hintText: '12 цифр',
+          errorText: _error,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Позже'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final error =
+                context.read<AppState>().setCompanyBin(_controller.text);
+            if (error != null) {
+              setState(() => _error = error);
+              return;
+            }
+            Navigator.of(context).pop();
+          },
+          child: const Text('Сохранить'),
+        ),
+      ],
     );
   }
 }

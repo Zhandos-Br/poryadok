@@ -293,6 +293,84 @@ void main() {
     });
   });
 
+  group('простая регистрация и итоги', () {
+    test('регистрация по телефону без паспорта, БИН и никнейма', () {
+      final s = AppState();
+      expect(
+        s.register(
+          fullName: 'Нурлан',
+          nickname: '',
+          phone: '+7 702 300 40 50',
+          isBusiness: true,
+          companyName: 'Пекарня',
+          quick: true,
+        ),
+        isNull,
+      );
+      expect(s.shouldAskBin, isTrue);
+      expect(s.setCompanyBin('12345'), isNotNull);
+      expect(s.setCompanyBin('555666777888'), isNull);
+      expect(s.shouldAskBin, isFalse);
+    });
+
+    test('вход по коду приглашения без паспорта, паспорт спросят позже', () {
+      final s = AppState()..signInAsUser('m1');
+      final r = s.createInvite(phone: '+7 701 999 88 77', role: Role.employee);
+      expect(r.error, isNull);
+      expect(s.inviteLink(r.invite!), contains('invite=${r.invite!.code}'));
+      expect(s.whatsappLink(r.invite!), startsWith('https://wa.me/77019998877'));
+      s.signOut();
+      expect(
+        s.register(
+          fullName: 'Дана',
+          nickname: '',
+          phone: '+7 701 999 88 77',
+          invite: r.invite!.code,
+          quick: true,
+        ),
+        isNull,
+      );
+      expect(s.me.companyId, 'c1');
+      expect(s.shouldAskPassport, isTrue);
+      expect(s.setPassport('N1234567'), isNull);
+      expect(s.shouldAskPassport, isFalse);
+    });
+
+    test('итоги дня видит только руководитель', () {
+      final s = AppState()..signInAsUser('m1');
+      s.addTask(
+        title: 'Новая',
+        assigneeIds: ['e1'],
+        due: DateTime.now().add(const Duration(hours: 1)),
+        requiredKinds: {ReportKind.photo},
+      );
+      expect(s.digest.notAccepted, isNotEmpty);
+      expect(s.digestText(), contains('Итоги дня'));
+      s.signInAsUser('e1');
+      expect(s.digest.total, 0);
+    });
+
+    test('шаблон сохраняется и не дублируется', () {
+      final s = AppState()..signInAsUser('m1');
+      final n = s.templates.length;
+      s.saveTemplate(
+        title: 'Выкладка товара',
+        kinds: {ReportKind.photo},
+        hour: 10,
+        minute: 0,
+        repeat: Repeat.daily,
+      );
+      s.saveTemplate(
+        title: 'Выкладка товара',
+        kinds: {ReportKind.photo},
+        hour: 10,
+        minute: 0,
+        repeat: Repeat.daily,
+      );
+      expect(s.templates.length, n + 1);
+    });
+  });
+
   group('принятие задачи', () {
     TaskItem create(AppState s) => s.addTask(
           title: 'Протереть витрины',

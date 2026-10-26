@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app_state.dart';
 import '../models.dart';
@@ -192,6 +193,40 @@ class _InviteScreenState extends State<InviteScreen> {
                         icon: const Icon(Icons.copy_outlined),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton.icon(
+                    onPressed: () => launchUrl(
+                      Uri.parse(
+                        context.read<AppState>().whatsappLink(result.invite!),
+                      ),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF1FA855),
+                      minimumSize: const Size.fromHeight(46),
+                    ),
+                    icon: const Icon(Icons.send_outlined, size: 18),
+                    label: const Text('Отправить ссылку в WhatsApp'),
+                  ),
+                  const SizedBox(height: 6),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(
+                        text: context
+                            .read<AppState>()
+                            .inviteMessage(result.invite!),
+                      ));
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Приглашение скопировано')),
+                      );
+                    },
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(44),
+                    ),
+                    icon: const Icon(Icons.link, size: 18),
+                    label: const Text('Скопировать ссылку'),
                   ),
                 ],
               ),

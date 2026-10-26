@@ -8,7 +8,7 @@ import '../theme.dart';
 import '../widgets.dart';
 
 /// Вход для тех, кто уже зарегистрирован. В рабочей версии здесь
-/// подтверждение кодом из SMS. В демо достаточно номера.
+/// подтверждение кодом из SMS. В демо код всегда 1234.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -18,17 +18,24 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _phone = TextEditingController();
+  final _code = TextEditingController();
+  bool _codeSent = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _phone.addListener(() => setState(() => _error = null));
+    _phone.addListener(() => setState(() {
+      _error = null;
+      _codeSent = false;
+    }));
+    _code.addListener(() => setState(() => _error = null));
   }
 
   @override
   void dispose() {
     _phone.dispose();
+    _code.dispose();
     super.dispose();
   }
 
@@ -37,6 +44,14 @@ class _LoginScreenState extends State<LoginScreen> {
   void _finish() => Navigator.of(context).popUntil((r) => r.isFirst);
 
   void _signIn() {
+    if (!_codeSent) {
+      setState(() => _codeSent = true);
+      return;
+    }
+    if (_code.text.trim() != AppState.demoSmsCode) {
+      setState(() => _error = 'Неверный код из SMS');
+      return;
+    }
     final error = context.read<AppState>().signInByPhone(_phone.text);
     if (error != null) {
       setState(() => _error = error);
@@ -80,6 +95,29 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
+          if (_codeSent) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _code,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ],
+              decoration: InputDecoration(
+                labelText: 'Код из SMS',
+                hintText: 'В демо: ${AppState.demoSmsCode}',
+                prefixIcon: const Icon(Icons.sms_outlined),
+                filled: true,
+                fillColor: paletteOf(context).card,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: lineColor),
+                ),
+              ),
+            ),
+          ],
           if (_error != null) ...[
             const SizedBox(height: 10),
             Text(
@@ -89,12 +127,14 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
           const SizedBox(height: 14),
           FilledButton(
-            onPressed: _valid ? _signIn : null,
+            onPressed: _valid && (!_codeSent || _code.text.length == 4)
+                ? _signIn
+                : null,
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
               backgroundColor: brand,
             ),
-            child: const Text('Войти'),
+            child: Text(_codeSent ? 'Войти' : 'Получить код'),
           ),
           const SizedBox(height: 28),
           const SectionLabel('Демо: войти как'),
@@ -102,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _DemoTile(
             icon: Icons.bar_chart,
             title: 'Собственник',
-            subtitle: 'Видит отчёты, команду и рейтинг',
+            subtitle: 'Видит отчёты, команду, рейтинг и итоги дня',
             onTap: () => _demo('o1'),
           ),
           const SizedBox(height: 8),

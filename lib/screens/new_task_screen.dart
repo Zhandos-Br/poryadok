@@ -41,6 +41,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
   TimeOfDay _time = const TimeOfDay(hour: 17, minute: 0);
   Repeat _repeat = Repeat.once;
   bool _tomorrow = false;
+  bool _saveTemplate = false;
 
   @override
   void initState() {
@@ -71,8 +72,28 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
     if (picked != null) setState(() => _time = picked);
   }
 
+  void _applyTemplate(TaskTemplate t) {
+    setState(() {
+      _title.text = t.title;
+      _kinds
+        ..clear()
+        ..addAll(t.kinds);
+      _time = TimeOfDay(hour: t.hour, minute: t.minute);
+      _repeat = t.repeat;
+    });
+  }
+
   void _create() {
     final state = context.read<AppState>();
+    if (_saveTemplate) {
+      state.saveTemplate(
+        title: _title.text,
+        kinds: _kinds,
+        hour: _time.hour,
+        minute: _time.minute,
+        repeat: _repeat,
+      );
+    }
     final now = DateTime.now();
     final day = DateTime(
       now.year,
@@ -122,6 +143,22 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
+          if (state.templates.isNotEmpty) ...[
+            const _Label('Шаблоны'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final t in state.templates)
+                  ActionChip(
+                    avatar: const Icon(Icons.bolt_outlined, size: 18),
+                    label: Text(t.title),
+                    onPressed: () => _applyTemplate(t),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
+          ],
           const _Label('Что нужно сделать'),
           TextField(
             controller: _title,
@@ -252,7 +289,15 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 10),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Сохранить как шаблон'),
+            subtitle: const Text('Чтобы в следующий раз поставить в одно касание'),
+            value: _saveTemplate,
+            onChanged: (v) => setState(() => _saveTemplate = v),
+          ),
+          const SizedBox(height: 18),
           SizedBox(
             height: 56,
             child: FilledButton.icon(

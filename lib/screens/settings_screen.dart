@@ -66,7 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _Row(label: 'Телефон', value: me.phone),
                 if (company != null) ...[
                   _Row(label: 'Компания', value: company.name),
-                  _Row(label: 'БИН компании', value: company.bin),
+                  _Row(label: 'БИН компании', value: company.bin.isEmpty ? 'не указан' : company.bin),
                   _Row(label: 'Должность', value: me.position),
                 ] else
                   const _Row(label: 'Компания', value: 'Не состоите в компании'),

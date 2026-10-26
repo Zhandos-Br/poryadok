@@ -54,6 +54,34 @@ class ChatListScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
+          if (state.shouldAskPassport) ...[
+            Panel(
+              color: toneMid.bg,
+              borderColor: Colors.transparent,
+              onTap: () async {
+                final entered = await showDialog<String>(
+                  context: context,
+                  builder: (_) => const _PassportDialog(),
+                );
+                if (entered != null) state.setPassport(entered);
+              },
+              child: Row(
+                children: [
+                  Icon(Icons.badge_outlined, color: toneMid.fg),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Дополните профиль: укажите паспортные данные. '
+                      'Они нужны компании один раз.',
+                      style: TextStyle(fontSize: 13.5, color: toneMid.fg),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: toneMid.fg),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
           for (final invite in invites) ...[
             _InviteCard(invite: invite),
             const SizedBox(height: 10),
@@ -174,7 +202,7 @@ class _InviteCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'БИН ${company?.bin ?? ''}. '
+            '${(company?.bin ?? '').isEmpty ? '' : 'БИН ${company!.bin}. '}'
             '${from.name} приглашает вас как: ${invite.role.label.toLowerCase()}. '
             'После согласия вы сразу окажетесь в команде'
             '${state.needsPassport ? ', нужно будет указать паспортные данные' : ''}.',

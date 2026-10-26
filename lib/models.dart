@@ -103,6 +103,51 @@ enum InviteStatus { pending, accepted, declined }
 /// Приглашение в компанию. Его создаёт руководитель или собственник
 /// на номер телефона. Если человек уже зарегистрирован, приглашение
 /// придёт ему в приложение, иначе он введёт код при регистрации.
+/// Шаблон повторяющейся задачи: «Открытие магазина», «Закрытие кассы».
+class TaskTemplate {
+  const TaskTemplate({
+    required this.id,
+    required this.title,
+    required this.kinds,
+    this.hour = 17,
+    this.minute = 0,
+    this.repeat = Repeat.once,
+  });
+
+  final String id;
+  final String title;
+  final Set<ReportKind> kinds;
+  final int hour;
+  final int minute;
+  final Repeat repeat;
+}
+
+/// Итоги дня для руководителя и собственника.
+class DayDigest {
+  const DayDigest({
+    required this.total,
+    required this.done,
+    required this.overdue,
+    required this.notAccepted,
+    required this.inWork,
+  });
+
+  /// Задачи, назначенные на сегодня.
+  final int total;
+  final int done;
+
+  /// Просроченные и не выполненные (за любые дни).
+  final List<TaskItem> overdue;
+
+  /// Не принятые сотрудниками (из серии повторов одна ближайшая).
+  final List<TaskItem> notAccepted;
+
+  /// Принятые, ещё не просроченные и не сданные.
+  final List<TaskItem> inWork;
+
+  int get percent => total == 0 ? 0 : (done * 100 / total).round();
+}
+
 class CompanyInvite {
   CompanyInvite({
     required this.id,

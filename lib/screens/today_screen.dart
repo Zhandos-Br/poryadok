@@ -7,7 +7,6 @@ import '../ru.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'close_task_screen.dart';
-import 'rating_screen.dart';
 
 /// Главный экран сотрудника: задачи на сегодня списком.
 class TodayScreen extends StatelessWidget {
@@ -18,8 +17,6 @@ class TodayScreen extends StatelessWidget {
     final state = context.watch<AppState>();
     final tasks = state.todayTasks;
     final done = tasks.where((t) => t.done).length;
-    final score = state.ratingFor(state.me.id).total;
-    final tone = toneForScore(score);
     final progress = tasks.isEmpty ? 0.0 : done / tasks.length;
 
     return SafeArea(
@@ -40,37 +37,6 @@ class TodayScreen extends StatelessWidget {
                     const SizedBox(height: 2),
                     const ScreenTitle('Задачи на сегодня'),
                   ],
-                ),
-              ),
-              InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => RatingScreen(userId: state.me.id),
-                  ),
-                ),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: tone.bg,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.star_rounded, size: 18, color: tone.bar),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${score.round()}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: tone.fg,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ],

@@ -482,6 +482,180 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
+  // --- Шаблоны задач -------------------------------------------------------
+
+  final List<TaskTemplate> templates = [
+    const TaskTemplate(
+      id: 't1',
+      title: 'Открытие магазина',
+      kinds: {ReportKind.photo},
+      hour: 9,
+      repeat: Repeat.daily,
+    ),
+    const TaskTemplate(
+      id: 't2',
+      title: 'Закрытие кассы',
+      kinds: {ReportKind.photo, ReportKind.text},
+      hour: 21,
+      repeat: Repeat.daily,
+    ),
+    const TaskTemplate(
+      id: 't3',
+      title: 'Проверить сроки годности на витрине',
+      kinds: {ReportKind.photo},
+      hour: 12,
+      repeat: Repeat.weekdays,
+    ),
+    const TaskTemplate(
+      id: 't4',
+      title: 'Влажная уборка зала',
+      kinds: {ReportKind.photo},
+      hour: 20,
+      repeat: Repeat.daily,
+    ),
+  ];
+
+  void saveTemplate({
+    required String title,
+    required Set<ReportKind> kinds,
+    required int hour,
+    required int minute,
+    required Repeat repeat,
+  }) {
+    final name = title.trim();
+    if (name.isEmpty || templates.any((t) => t.title == name)) return;
+    templates.add(TaskTemplate(
+      id: _nextId('t'),
+      title: name,
+      kinds: Set.of(kinds),
+      hour: hour,
+      minute: minute,
+      repeat: repeat,
+    ));
+    notifyListeners();
+  }
+
+  void removeTemplate(String id) {
+    templates.removeWhere((t) => t.id == id);
+    notifyListeners();
+  }
+
+  // --- Итоги дня и просрочки ----------------------------------------------
+
+  List<TaskItem> _dedupe(List<TaskItem> list) {
+    final seen = <String>{};
+    list.sort((a, b) => a.due.compareTo(b.due));
+    return [
+      for (final t in list)
+        if (seen.add('${t.seriesId ?? t.id}:${t.assigneeId}')) t,
+    ];
+  }
+
+  /// Сводка за сегодня. Видна только руководителю и собственнику.
+  DayDigest get digest {
+    if (!canManage) {
+      return const DayDigest(
+        total: 0,
+        done: 0,
+        overdue: [],
+        notAccepted: [],
+        inWork: [],
+      );
+    }
+    final now = DateTime.now();
+    final today = dateOnly(now);
+    final mine = tasks
+        .where((t) => userById(t.assigneeId).companyId == me.companyId)
+        .toList();
+    final todays = mine.where((t) => dateOnly(t.due) == today).toList();
+    return DayDigest(
+      total: todays.length,
+      done: todays.where((t) => t.done).length,
+      overdue: mine.where((t) => t.isOverdue(now)).toList()
+        ..sort((a, b) => a.due.compareTo(b.due)),
+      notAccepted: _dedupe(
+        mine.where((t) => !t.done && !t.accepted && !t.isOverdue(now)).toList(),
+      ),
+      inWork: todays
+          .where((t) => !t.done && t.accepted && !t.isOverdue(now))
+          .toList()
+        ..sort((a, b) => a.due.compareTo(b.due)),
+    );
+  }
+
+  /// Текст вечерней сводки: его же сервер отправит в push и в WhatsApp.
+  String digestText() {
+    final d = digest;
+    final b = StringBuffer(
+      'Итоги дня: выполнено ${d.done} из ${d.total} (${d.percent}%).',
+    );
+    if (d.overdue.isNotEmpty) {
+      b.write('\nПросрочено: ${d.overdue.length}');
+      for (final t in d.overdue.take(5)) {
+        b.write('\n— ${userById(t.assigneeId).name}: ${t.title}');
+      }
+    }
+    if (d.notAccepted.isNotEmpty) {
+      b.write('\nНе приняли: ${d.notAccepted.length}');
+      for (final t in d.notAccepted.take(5)) {
+        b.write('\n— ${userById(t.assigneeId).name}: ${t.title}');
+      }
+    }
+    return b.toString();
+  }
+
+  // --- Ссылки-приглашения ---------------------------------------------------
+
+  /// Адрес приложения. В рабочей версии заменить на свой домен.
+  static const appUrl = 'https://zhandos-br.github.io/poryadok/';
+
+  /// Код из SMS в демо-версии. Настоящие SMS отправляет сервер.
+  static const demoSmsCode = '1234';
+
+  String inviteLink(CompanyInvite i) =>
+      '$appUrl?invite=${i.code}&phone=${_digits(i.phone)}';
+
+  /// Текст приглашения для WhatsApp.
+  String inviteMessage(CompanyInvite i) {
+    final company = companies.firstWhere((c) => c.id == i.companyId).name;
+    return 'Вас приглашают в команду «$company» в приложении «Порядок». '
+        'Откройте ссылку и подтвердите номер по SMS: ${inviteLink(i)}';
+  }
+
+  /// Ссылка, открывающая WhatsApp с готовым сообщением.
+  String whatsappLink(CompanyInvite i) =>
+      'https://wa.me/${_digits(i.phone)}?text='
+      '${Uri.encodeComponent(inviteMessage(i))}';
+
+  // --- Данные, которые можно указать позже ----------------------------------
+
+  /// Паспорт нужен сотруднику компании, но спрашивается не при входе.
+  bool get shouldAskPassport =>
+      me.companyId != null && me.role == Role.employee && needsPassport;
+
+  String? setPassport(String value) {
+    if (!_validPassport(value)) return 'Введите серию и номер паспорта';
+    _replaceUser(me.copyWith(passport: value.trim()));
+    notifyListeners();
+    return null;
+  }
+
+  bool get shouldAskBin =>
+      canManage && (myCompany?.bin.isEmpty ?? false);
+
+  String? setCompanyBin(String value) {
+    final bin = _digits(value);
+    if (bin.length != 12) return 'БИН состоит из 12 цифр';
+    if (companies.any((c) => c.bin == bin)) {
+      return 'Компания с таким БИН уже зарегистрирована';
+    }
+    final i = companies.indexWhere((c) => c.id == me.companyId);
+    if (i < 0) return 'Компания не найдена';
+    companies[i] = Company(id: companies[i].id, name: companies[i].name, bin: bin);
+    notifyListeners();
+    return null;
+  }
+
   /// Задачи компании, которые сотрудники ещё не приняли в работу.
   /// Из серии повторов показывается ближайшая задача.
   List<TaskItem> get unacceptedTasks {
@@ -719,23 +893,34 @@ class AppState extends ChangeNotifier {
     String companyName = '',
     String bin = '',
     Role businessRole = Role.owner,
+    bool quick = false,
   }) {
     if (findUserByPhone(phone) != null) {
       return 'Этот номер уже зарегистрирован. Войдите по номеру.';
     }
-    final nick = nickname.trim().replaceFirst(RegExp(r'^@'), '');
+    var nick = nickname.trim().replaceFirst(RegExp(r'^@'), '');
+    if (quick && nick.isEmpty) {
+      final d = _digits(phone);
+      nick = 'user_${d.substring(d.length > 7 ? d.length - 7 : 0)}';
+    }
     if (users.any((u) => u.nickname.toLowerCase() == nick.toLowerCase())) {
       return 'Такой никнейм уже занят';
     }
     if (isBusiness) {
       if (companyName.trim().isEmpty) return 'Укажите название компании';
-      if (_digits(bin).length != 12) return 'БИН состоит из 12 цифр';
-      if (companies.any((c) => c.bin == _digits(bin))) {
+      if (!(quick && _digits(bin).isEmpty) && _digits(bin).length != 12) {
+        return 'БИН состоит из 12 цифр';
+      }
+      if (_digits(bin).isNotEmpty &&
+          companies.any((c) => c.bin == _digits(bin))) {
         return 'Компания с таким БИН уже зарегистрирована. '
             'Попросите её руководителя или собственника пригласить вас.';
       }
     }
-    if (!isBusiness && invite.trim().isNotEmpty && !_validPassport(passport)) {
+    if (!quick &&
+        !isBusiness &&
+        invite.trim().isNotEmpty &&
+        !_validPassport(passport)) {
       return 'Для вступления в компанию нужны паспортные данные';
     }
 

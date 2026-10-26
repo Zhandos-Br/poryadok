@@ -4,14 +4,13 @@ import 'package:provider/provider.dart';
 import '../app_state.dart';
 import '../models.dart';
 import 'chat_list_screen.dart';
-import 'rating_screen.dart';
 import 'schedule_screen.dart';
 import 'team_screen.dart';
 import 'today_screen.dart';
 
 /// Нижняя навигация. Приложение построено вокруг чата: он всегда первый
 /// и открывается сразу после входа.
-/// Сотрудник: Чаты, Сегодня, Мой график, Рейтинг.
+/// Сотрудник: Чаты, Сегодня, Мой график. Рейтинг сотрудникам не показывается.
 /// Руководитель и собственник: Чаты и Команда (с календарём).
 /// Пользователь без компании видит только чаты и приглашения.
 class HomeShell extends StatefulWidget {
@@ -46,7 +45,6 @@ class _HomeShellState extends State<HomeShell> {
         const ChatListScreen(),
         const TodayScreen(),
         const MyScheduleScreen(),
-        RatingScreen(userId: me.id, embedded: true),
       ];
       destinations = const [
         chats,
@@ -57,10 +55,6 @@ class _HomeShellState extends State<HomeShell> {
         NavigationDestination(
           icon: Icon(Icons.calendar_month_outlined),
           label: 'Мой график',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.bar_chart),
-          label: 'Рейтинг',
         ),
       ];
     } else {

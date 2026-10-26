@@ -583,7 +583,7 @@ class _BindingPanelState extends State<_BindingPanel> {
           ),
           const SizedBox(height: 6),
           row('Компания', company?.name ?? '—'),
-          row('БИН', company?.bin ?? '—'),
+          row('БИН', (company?.bin ?? '').isEmpty ? '—' : company!.bin),
           row('Телефон', user.phone),
           row(
             'Паспорт',
